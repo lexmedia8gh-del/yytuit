@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     let downloadUrl = fileData.downloadUrl
     if (fileData.storagePath) {
       const { data: signedData, error: signedError } = await supabase.storage
-        .from('delivery-files')
+        .from('Delivery files')
         .createSignedUrl(fileData.storagePath, 3600)
 
       if (!signedError && signedData?.signedUrl) {

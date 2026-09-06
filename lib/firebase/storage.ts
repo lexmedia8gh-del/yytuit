@@ -85,7 +85,7 @@ async function uploadViaServerApi(
 }
 
 /**
- * Upload a delivery file to Supabase Storage bucket 'delivery-files'.
+ * Upload a delivery file to Supabase Storage bucket 'Delivery files'.
  */
 export async function uploadDeliveryFile(
   projectId: string,
@@ -95,18 +95,18 @@ export async function uploadDeliveryFile(
   onProgress?: UploadProgressCallback,
   clientId?: string
 ): Promise<{ downloadUrl: string; storagePath: string }> {
-  // Uses server API upload which stores in Supabase Storage private bucket 'delivery-files'
+  // Uses server API upload which stores in Supabase Storage private bucket 'Delivery files'
   return await uploadViaServerApi(projectId, deliveryId, fileId, clientId || '', file, onProgress)
 }
 
 /**
- * Delete a delivery file from Supabase Storage bucket 'delivery-files'
+ * Delete a delivery file from Supabase Storage bucket 'Delivery files'
  */
 export async function deleteDeliveryFile(storagePath: string): Promise<void> {
   if (!storagePath) return
   try {
     const { error } = await supabase.storage
-      .from('delivery-files')
+      .from('Delivery files')
       .remove([storagePath])
     if (error) {
       console.warn('Supabase storage delete warning:', error.message)

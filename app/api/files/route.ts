@@ -31,10 +31,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Storage path not found' }, { status: 404 })
     }
 
-    // 1. Primary: Stream from Supabase Storage private bucket 'delivery-files'
+    // 1. Primary: Stream from Supabase Storage private bucket 'Delivery files'
     try {
       const { data: fileData, error: downloadError } = await supabase.storage
-        .from('delivery-files')
+        .from('Delivery files')
         .download(storagePath)
 
       if (!downloadError && fileData) {

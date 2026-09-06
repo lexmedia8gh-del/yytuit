@@ -57,9 +57,9 @@ export async function POST(req: NextRequest) {
         console.warn('Failed to delete local file copy:', err)
       }
       
-      // 2. Delete from Supabase Storage private bucket 'delivery-files'
+      // 2. Delete from Supabase Storage private bucket 'Delivery files'
       try {
-        await supabase.storage.from('delivery-files').remove([storagePath])
+        await supabase.storage.from('Delivery files').remove([storagePath])
       } catch (err: any) {
         console.warn('Failed to delete Supabase Storage file:', err?.message)
       }

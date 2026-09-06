@@ -73,9 +73,9 @@ export async function POST(req: NextRequest) {
               console.warn(`[Cleanup] Local delete failed for ${storagePath}:`, e.message)
             }
 
-            // 2. Delete from Supabase Storage private bucket 'delivery-files'
+            // 2. Delete from Supabase Storage private bucket 'Delivery files'
             try {
-              await supabase.storage.from('delivery-files').remove([storagePath])
+              await supabase.storage.from('Delivery files').remove([storagePath])
             } catch (e: any) {
               console.warn(`[Cleanup] Storage delete failed for ${storagePath}:`, e?.message)
             }

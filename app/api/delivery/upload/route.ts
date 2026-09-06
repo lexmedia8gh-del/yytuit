@@ -37,12 +37,12 @@ export async function POST(req: NextRequest) {
     const id = fileDocId || Math.random().toString(36).substring(2, 15)
     const storagePath = `deliveries/${projectId}/${deliveryId}/${id}/${sanitizedName}`
 
-    // 1. Primary: Upload directly to Supabase Storage private bucket 'delivery-files'
+    // 1. Primary: Upload directly to Supabase Storage private bucket 'Delivery files'
     let uploadedToCloud = false
     let cloudError: string | null = null
     try {
       const { data, error } = await supabase.storage
-        .from('delivery-files')
+        .from('Delivery files')
         .upload(storagePath, buffer, {
           contentType: file.type || 'application/octet-stream',
           upsert: true,
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         throw new Error(error.message)
       }
       uploadedToCloud = true
-      console.log('[Upload] Successfully uploaded to Supabase Storage bucket delivery-files:', storagePath)
+      console.log('[Upload] Successfully uploaded to Supabase Storage bucket "Delivery files":', storagePath)
     } catch (err: any) {
       console.warn('[Upload] Supabase Storage bucket upload notice:', err?.message)
       cloudError = err?.message || 'Storage bucket notice'
