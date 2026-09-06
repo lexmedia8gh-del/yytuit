@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminDb, getAdminBucket, requireAdmin } from '@/lib/firebase/admin'
+import { getAdminBucket, requireAdmin } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
+import { getServerDoc, setServerDoc, updateServerDoc, queryServerDocs } from '@/lib/firebase/serverDb'
 import { FieldValue } from 'firebase-admin/firestore'
 import { sendDeliveryPaymentRequiredEmail } from '@/lib/services/brevo'
 import { getServerAppUrl } from '@/lib/utils'
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     const id = fileDocId || Math.random().toString(36).substring(2, 15)
     const storagePath = `deliveries/${projectId}/${deliveryId}/${id}/${sanitizedName}`
 
-    // 1. Primary: Upload directly to Firebase Storage bucket
+    // 1. Primary: Upload directly to Firebase Storage bucket if available
     let uploadedToCloud = false
     let cloudError: string | null = null
     try {
@@ -54,33 +55,33 @@ export async function POST(req: NextRequest) {
         },
       })
       uploadedToCloud = true
+      console.log('[Upload] Successfully uploaded to Firebase Storage bucket:', storagePath)
     } catch (err: any) {
-      console.warn('[Storage] Firebase Storage upload error:', err?.message)
-      cloudError = err?.message || 'Storage error'
+      console.warn('[Upload] Firebase Storage bucket upload notice:', err?.message)
+      cloudError = err?.message || 'Storage bucket notice'
     }
 
-    // 2. Secondary: Local disk cache (if writable, e.g. local development)
+    // 2. Secondary: Save to local server disk
+    let savedToDisk = false
     try {
       const relativeStorageDir = path.join('uploads', 'deliveries', projectId, deliveryId, id)
       const absoluteTargetDir = path.join(process.cwd(), 'public', relativeStorageDir)
       await fs.promises.mkdir(absoluteTargetDir, { recursive: true })
       const absoluteFilePath = path.join(absoluteTargetDir, sanitizedName)
       await fs.promises.writeFile(absoluteFilePath, buffer)
-    } catch (diskErr) {
-      // In serverless environments (e.g. Vercel, Cloud Run), local disk is read-only.
-      // If upload to Firebase Storage succeeded, this disk failure is expected and safe.
-      if (!uploadedToCloud) {
-        throw new Error(
-          `Unable to save file to cloud storage (${cloudError}) or local disk.`
-        )
-      }
+      savedToDisk = true
+    } catch (diskErr: any) {
+      console.warn('[Upload] Local disk write notice:', diskErr?.message)
+    }
+
+    if (!uploadedToCloud && !savedToDisk) {
+      throw new Error(`Unable to save file to cloud storage (${cloudError}) or server storage.`)
     }
 
     // Web-accessible download URL via streaming endpoint
     const downloadUrl = `/api/files?id=${id}`
 
-    // Save metadata to Firestore using Admin SDK
-    const adminDb = getAdminDb()
+    // 3. Save metadata to Cloud Firestore with automatic failover
     const fileRecord = {
       deliveryId,
       projectId,
@@ -93,15 +94,14 @@ export async function POST(req: NextRequest) {
       downloadUrl,
       downloadCount: 0,
       uploadedAt: FieldValue.serverTimestamp(),
-      uploadedBy: 'admin',
+      uploadedBy: auth.email || 'admin',
     }
 
-    await adminDb.collection(COLLECTIONS.DELIVERY_FILES).doc(id).set(fileRecord)
+    await setServerDoc(COLLECTIONS.DELIVERY_FILES, id, fileRecord)
 
     // Atomically increment container metrics and update status
     let emailNotificationStatus: { sent: boolean; messageId?: string; error?: string; skipped?: boolean } = { sent: false }
-    const deliveryRef = adminDb.collection(COLLECTIONS.DELIVERIES).doc(deliveryId)
-    const deliverySnap = await deliveryRef.get()
+    const deliverySnap = await getServerDoc(COLLECTIONS.DELIVERIES, deliveryId)
 
     if (deliverySnap.exists) {
       const deliveryData = deliverySnap.data()!
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         const targetClientId = deliveryData.clientId || clientId
 
         if (targetClientId) {
-          const clientSnap = await adminDb.collection(COLLECTIONS.CLIENTS).doc(targetClientId).get()
+          const clientSnap = await getServerDoc(COLLECTIONS.CLIENTS, targetClientId)
           if (clientSnap.exists) {
             const cData = clientSnap.data()!
             if (cData.email) clientEmail = cData.email
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
 
         // Fetch brand logo
         let lexmediaLogoUrl = ''
-        const brandingSnap = await adminDb.collection(COLLECTIONS.SETTINGS).doc('branding').get()
+        const brandingSnap = await getServerDoc(COLLECTIONS.SETTINGS, 'branding')
         if (brandingSnap.exists) {
           const bData = brandingSnap.data()!
           if (bData.logoUrl) lexmediaLogoUrl = bData.logoUrl
@@ -144,12 +144,12 @@ export async function POST(req: NextRequest) {
         let amountDue = 0
         let invoiceId = deliveryData.invoiceId
         if (!invoiceId && projectId) {
-          const invSnap = await adminDb.collection(COLLECTIONS.INVOICES).where('projectId', '==', projectId).get()
-          if (!invSnap.empty) invoiceId = invSnap.docs[0].id
+          const invDocs = await queryServerDocs(COLLECTIONS.INVOICES, 'projectId', '==', projectId, 1)
+          if (invDocs.length > 0) invoiceId = invDocs[0].id
         }
 
         if (invoiceId) {
-          const invDoc = await adminDb.collection(COLLECTIONS.INVOICES).doc(invoiceId).get()
+          const invDoc = await getServerDoc(COLLECTIONS.INVOICES, invoiceId)
           if (invDoc.exists) {
             const invData = invDoc.data()!
             amountDue = invData.balanceDue !== undefined ? invData.balanceDue : (invData.total || 0)
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await deliveryRef.update(updates)
+      await updateServerDoc(COLLECTIONS.DELIVERIES, deliveryId, updates)
     }
 
     return NextResponse.json({
@@ -193,6 +193,7 @@ export async function POST(req: NextRequest) {
       fileName: file.name,
       fileSize: file.size,
       fileType: fileRecord.fileType,
+      uploadedToCloud,
     })
   } catch (error: any) {
     console.error('API delivery upload error:', error)

@@ -5,6 +5,8 @@
  * Never import this file into client components or client-side code.
  */
 
+import { getServerAppUrl, isLocalhostOrDevUrl } from '@/lib/utils'
+
 interface SendDeliveryEmailParams {
   toEmail: string
   clientName: string
@@ -29,16 +31,12 @@ interface SendPaymentReminderEmailParams {
  * Replaces localhost or dynamic IP origins with official production URL if set
  */
 function getProductionUrl(urlStr: string): string {
-  const prodBase = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || ''
+  const prodBase = getServerAppUrl()
   if (!prodBase) return urlStr
 
   try {
     const urlObj = new URL(urlStr)
-    if (
-      urlObj.hostname === 'localhost' ||
-      urlObj.hostname === '127.0.0.1' ||
-      urlObj.hostname.startsWith('192.168.')
-    ) {
+    if (isLocalhostOrDevUrl(urlObj.origin) || isLocalhostOrDevUrl(urlStr)) {
       const normalizedBase = prodBase.startsWith('http') ? prodBase : `https://${prodBase}`
       const baseObj = new URL(normalizedBase)
       urlObj.protocol = baseObj.protocol
@@ -59,7 +57,7 @@ function makeAbsoluteLogoUrl(logoUrl: string | undefined): string {
     return getProductionUrl(logoUrl)
   }
   // Relative URL — prepend production base
-  const prodBase = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || ''
+  const prodBase = getServerAppUrl()
   if (!prodBase) return '' // Can't make absolute without a base; hide image
   const normalizedBase = prodBase.startsWith('http') ? prodBase : `https://${prodBase}`
   return `${normalizedBase.replace(/\/$/, '')}${logoUrl}`

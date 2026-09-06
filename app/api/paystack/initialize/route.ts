@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerAppUrl } from '@/lib/utils'
+import { getServerAppUrl, isLocalhostOrDevUrl } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { token, email, amount, invoiceNumber, clientName } = body
+    const { token, email, amount, invoiceNumber, clientName, origin: clientOrigin, callbackUrl: customCallbackUrl } = body
 
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: 'Invalid payment amount' }, { status: 400 })
@@ -21,8 +21,31 @@ export async function POST(req: NextRequest) {
     const amountInSubunits = Math.round(amount * 100)
     const reference = `LXM_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
     
-    const appUrl = getServerAppUrl(req) || new URL(req.url).origin
-    const callbackUrl = `${appUrl}/pay/${token}?reference=${reference}`
+    // Robustly determine production application URL
+    let appUrl = ''
+    if (clientOrigin && !isLocalhostOrDevUrl(clientOrigin)) {
+      appUrl = clientOrigin.trim().replace(/\/$/, '')
+    } else {
+      appUrl = getServerAppUrl(req)
+    }
+
+    if (!appUrl || (isLocalhostOrDevUrl(appUrl) && clientOrigin)) {
+      appUrl = clientOrigin?.trim().replace(/\/$/, '') || appUrl
+    }
+
+    if (appUrl && !appUrl.startsWith('http')) {
+      appUrl = `https://${appUrl}`
+    }
+
+    // Build the callback URL ensuring it points to the deployed production domain
+    let callbackUrl = ''
+    if (customCallbackUrl && !isLocalhostOrDevUrl(customCallbackUrl)) {
+      callbackUrl = customCallbackUrl
+    } else {
+      callbackUrl = `${appUrl}/pay/${encodeURIComponent(token)}?reference=${encodeURIComponent(reference)}`
+    }
+
+    console.log('[Paystack Init] Reference:', reference, 'Callback URL:', callbackUrl)
 
     const response = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',

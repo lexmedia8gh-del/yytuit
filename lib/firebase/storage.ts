@@ -5,7 +5,7 @@ import {
   deleteObject,
   type UploadTaskSnapshot,
 } from 'firebase/storage'
-import { storage } from './config'
+import { storage, auth } from './config'
 
 export interface UploadProgressCallback {
   (progress: number, bytesTransferred: number, totalBytes: number): void
@@ -14,7 +14,7 @@ export interface UploadProgressCallback {
 /**
  * Upload via server-side API with real upload progress tracking using XMLHttpRequest
  */
-function uploadViaServerApi(
+async function uploadViaServerApi(
   projectId: string,
   deliveryId: string,
   fileId: string,
@@ -22,6 +22,13 @@ function uploadViaServerApi(
   file: File,
   onProgress?: UploadProgressCallback
 ): Promise<{ downloadUrl: string; storagePath: string }> {
+  let token = ''
+  try {
+    if (auth?.currentUser) {
+      token = await auth.currentUser.getIdToken()
+    }
+  } catch {}
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     const formData = new FormData()
@@ -39,10 +46,10 @@ function uploadViaServerApi(
       }
     })
 
-    // Timeout (2 minutes for network file transfer)
-    xhr.timeout = 2 * 60 * 1000
+    // Timeout (5 minutes for network file transfer)
+    xhr.timeout = 5 * 60 * 1000
     xhr.ontimeout = () => {
-      reject(new Error('Upload timed out after 2 minutes. Please check your network connection.'))
+      reject(new Error('Upload timed out. Please check your network connection.'))
     }
 
     xhr.onload = () => {
@@ -75,6 +82,10 @@ function uploadViaServerApi(
     }
 
     xhr.open('POST', '/api/delivery/upload')
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    }
+    xhr.withCredentials = true
     xhr.send(formData)
   })
 }
@@ -95,7 +106,56 @@ export async function uploadDeliveryFile(
   onProgress?: UploadProgressCallback,
   clientId?: string
 ): Promise<{ downloadUrl: string; storagePath: string }> {
-  // Directly use server-side upload endpoint for instant, 100% reliable uploads
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9._\- ]/g, '_').trim() || 'file'
+  const storagePath = `deliveries/${projectId}/${deliveryId}/${fileId}/${sanitizedName}`
+
+  // 1. First attempt: Direct client upload to Firebase Storage
+  if (storage) {
+    try {
+      const fileRef = ref(storage, storagePath)
+      const uploadTask = uploadBytesResumable(fileRef, file, {
+        contentType: file.type || 'application/octet-stream',
+        customMetadata: {
+          projectId,
+          deliveryId,
+          clientId: clientId || '',
+          originalName: file.name,
+          fileDocId: fileId,
+        },
+      })
+
+      const downloadUrl = await new Promise<string>((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          (snapshot: UploadTaskSnapshot) => {
+            if (onProgress && snapshot.totalBytes > 0) {
+              const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+              onProgress(percent, snapshot.bytesTransferred, snapshot.totalBytes)
+            }
+          },
+          (error) => {
+            console.warn('[Storage] Client direct upload error:', error.code, error.message)
+            reject(error)
+          },
+          async () => {
+            try {
+              const url = await getDownloadURL(uploadTask.snapshot.ref)
+              resolve(url)
+            } catch (urlErr) {
+              reject(urlErr)
+            }
+          }
+        )
+      })
+
+      console.log('[Storage] Direct Firebase Storage upload succeeded for:', file.name)
+      return { downloadUrl, storagePath }
+    } catch (directUploadErr) {
+      console.warn('[Storage] Direct Firebase Storage upload failed, falling back to server API:', directUploadErr)
+    }
+  }
+
+  // 2. Reliable Fallback: Server API upload (saves to server storage with streaming download endpoint)
   return await uploadViaServerApi(projectId, deliveryId, fileId, clientId || '', file, onProgress)
 }
 

@@ -39,6 +39,7 @@ import {
   formatDate,
   getStatusColor,
   copyToClipboard,
+  getClientAppUrl,
 } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -126,7 +127,7 @@ export default function ProjectDetailPage() {
     }
   }
 
-  const appUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const appUrl = getClientAppUrl()
   const paymentUrl = paymentLink ? `${appUrl}/pay/${paymentLink.token}` : null
   const amountPaid = project?.amountPaid ?? 0
   const balance = project?.outstandingBalance ?? Math.max(0, (project?.price || 0) - amountPaid)

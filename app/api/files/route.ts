@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminDb, getAdminBucket } from '@/lib/firebase/admin'
+import { getAdminBucket } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
+import { getServerDoc } from '@/lib/firebase/serverDb'
 import fs from 'fs'
 import path from 'path'
 
@@ -15,17 +16,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const adminDb = getAdminDb()
-    const fileDoc = await adminDb.collection(COLLECTIONS.DELIVERY_FILES).doc(fileId).get()
+    const fileDoc = await getServerDoc(COLLECTIONS.DELIVERY_FILES, fileId)
 
-    if (!fileDoc.exists) {
+    if (!fileDoc.exists || !fileDoc.data()) {
       return NextResponse.json({ error: 'File not found' }, { status: 404 })
     }
 
-    const data = fileDoc.data()
-    const storagePath = data?.storagePath
-    const fileName = data?.fileName || data?.originalName || 'download'
-    const mimeType = data?.fileType || 'application/octet-stream'
+    const data = fileDoc.data()!
+    const storagePath = data.storagePath
+    const fileName = data.fileName || data.originalName || 'download'
+    const mimeType = data.fileType || 'application/octet-stream'
 
     if (!storagePath) {
       return NextResponse.json({ error: 'Storage path not found' }, { status: 404 })
@@ -54,18 +54,25 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Secondary: Fallback to local disk (e.g. dev environment uploads)
-    const localFilePath = path.join(process.cwd(), 'public', 'uploads', storagePath)
-    if (fs.existsSync(localFilePath)) {
-      const fileBuffer = await fs.promises.readFile(localFilePath)
-      return new NextResponse(new Uint8Array(fileBuffer), {
-        status: 200,
-        headers: {
-          'Content-Type': mimeType,
-          'Content-Disposition': 'inline; filename="' + encodeURIComponent(fileName) + '"',
-          'Content-Length': fileBuffer.length.toString(),
-          'Cache-Control': 'public, max-age=3600',
-        },
-      })
+    const candidatePaths = [
+      path.join(process.cwd(), 'public', 'uploads', storagePath),
+      path.join(process.cwd(), 'public', storagePath),
+      path.join(process.cwd(), storagePath),
+    ]
+
+    for (const localFilePath of candidatePaths) {
+      if (fs.existsSync(localFilePath)) {
+        const fileBuffer = await fs.promises.readFile(localFilePath)
+        return new NextResponse(new Uint8Array(fileBuffer), {
+          status: 200,
+          headers: {
+            'Content-Type': mimeType,
+            'Content-Disposition': 'inline; filename="' + encodeURIComponent(fileName) + '"',
+            'Content-Length': fileBuffer.length.toString(),
+            'Cache-Control': 'public, max-age=3600',
+          },
+        })
+      }
     }
 
     return NextResponse.json(

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminDb, requireAdmin } from '@/lib/firebase/admin'
+import { requireAdmin } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
+import { getServerDoc, updateServerDoc } from '@/lib/firebase/serverDb'
 import { FieldValue } from 'firebase-admin/firestore'
 import { sendDeliveryReadyEmail } from '@/lib/services/brevo'
+import { getServerAppUrl } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +12,7 @@ export const dynamic = 'force-dynamic'
  * POST /api/delivery/release
  * Body: { deliveryId: string, release: boolean }
  *
- * Atomically updates the delivery release state using the Admin SDK.
+ * Atomically updates the delivery release state.
  * Returns the current accessToken so the admin can build the portal URL from server truth.
  */
 export async function POST(req: NextRequest) {
@@ -25,11 +27,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing deliveryId' }, { status: 400 })
     }
 
-    const adminDb = getAdminDb()
-    const deliveryRef = adminDb.collection(COLLECTIONS.DELIVERIES).doc(deliveryId)
-    const snap = await deliveryRef.get()
+    const snap = await getServerDoc(COLLECTIONS.DELIVERIES, deliveryId)
 
-    if (!snap.exists) {
+    if (!snap.exists || !snap.data()) {
       return NextResponse.json({ error: 'Delivery not found' }, { status: 404 })
     }
 
@@ -60,8 +60,8 @@ export async function POST(req: NextRequest) {
         let clientLogoUrl = ''
 
         if (deliveryData.clientId) {
-          const clientSnap = await adminDb.collection(COLLECTIONS.CLIENTS).doc(deliveryData.clientId).get()
-          if (clientSnap.exists) {
+          const clientSnap = await getServerDoc(COLLECTIONS.CLIENTS, deliveryData.clientId)
+          if (clientSnap.exists && clientSnap.data()) {
             const clientData = clientSnap.data()!
             if (clientData.email) clientEmail = clientData.email
             if (clientData.fullName) clientName = clientData.fullName
@@ -71,14 +71,15 @@ export async function POST(req: NextRequest) {
 
         // Fetch brand logo
         let lexmediaLogoUrl = ''
-        const brandingSnap = await adminDb.collection(COLLECTIONS.SETTINGS).doc('branding').get()
-        if (brandingSnap.exists) {
+        const brandingSnap = await getServerDoc(COLLECTIONS.SETTINGS, 'branding')
+        if (brandingSnap.exists && brandingSnap.data()) {
           const bData = brandingSnap.data()!
           if (bData.logoUrl) lexmediaLogoUrl = bData.logoUrl
         }
 
         if (clientEmail) {
-          const publicUrl = `${new URL(req.url).origin}/delivery/${encodeURIComponent(deliveryData.accessToken)}`
+          const baseUrl = getServerAppUrl(req)
+          const publicUrl = `${baseUrl}/delivery/${encodeURIComponent(deliveryData.accessToken)}`
           const emailRes = await sendDeliveryReadyEmail({
             toEmail: clientEmail,
             clientName,
@@ -110,29 +111,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await deliveryRef.update(updates)
-
-    // Log activity
-    if (willRelease) {
-      await adminDb.collection(COLLECTIONS.ACTIVITY_LOGS).add({
-        event: 'delivery_released',
-        description: `Delivery released to client for "${deliveryData.projectName || 'Project'}"${emailNotificationStatus.sent ? ' (Email sent via Brevo)' : ''}`,
-        clientId: deliveryData.clientId,
-        clientName: deliveryData.clientName,
-        entityId: deliveryId,
-        entityType: 'delivery',
-        emailNotification: emailNotificationStatus,
-        performedBy: 'admin',
-        createdAt: FieldValue.serverTimestamp(),
-      })
-    }
+    await updateServerDoc(COLLECTIONS.DELIVERIES, deliveryId, updates)
 
     // Return the accessToken from Firestore (source of truth) so admin builds URL from this
+    const baseUrl = getServerAppUrl(req)
     return NextResponse.json({
       success: true,
       deliveryId,
       accessToken: deliveryData.accessToken,
-      publicUrl: `${new URL(req.url).origin}/delivery/${encodeURIComponent(deliveryData.accessToken)}`,
+      publicUrl: `${baseUrl}/delivery/${encodeURIComponent(deliveryData.accessToken)}`,
       isReleased: willRelease,
       status: updates.status || deliveryData.status,
       emailNotification: emailNotificationStatus,

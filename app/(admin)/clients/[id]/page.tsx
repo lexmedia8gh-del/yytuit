@@ -35,7 +35,7 @@ import {
 } from '@/lib/firebase/firestore'
 import { where, orderBy } from '@/lib/firebase/firestore'
 import type { Client, Project, Invoice, Payment, ClientLink } from '@/lib/types'
-import { formatCurrency, formatDate, getStatusColor, copyToClipboard } from '@/lib/utils'
+import { formatCurrency, formatDate, getStatusColor, copyToClipboard, getClientAppUrl } from '@/lib/utils'
 import { NewProjectWizard } from '@/components/projects/NewProjectWizard'
 import toast from 'react-hot-toast'
 
@@ -584,7 +584,7 @@ export default function ClientProfilePage() {
                       ) : (
                         <div className="space-y-2">
                           {links.map((link) => {
-                            const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+                            const appUrl = getClientAppUrl()
                             const payUrl = `${appUrl}/pay/${link.token}`
                             return (
                               <div

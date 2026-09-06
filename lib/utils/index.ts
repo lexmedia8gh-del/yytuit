@@ -213,40 +213,156 @@ export function getFirebaseErrorMessage(code: string): string {
 
 // ─── URL Helpers ─────────────────────────────────────────────
 /**
- * Resolves the application base URL on the client (browser).
- * Never returns localhost unless explicitly run in a localhost environment.
+ * Checks whether a given URL string or origin is a localhost / dev-only / internal address.
+ * Matches: localhost, 127.0.0.1, 0.0.0.0, Host3000, and port 3000.
+ */
+export function isLocalhostOrDevUrl(urlStr?: string | null): boolean {
+  if (!urlStr) return true
+  const lower = urlStr.trim().toLowerCase()
+  if (
+    lower.includes('localhost') ||
+    lower.includes('127.0.0.1') ||
+    lower.includes('0.0.0.0') ||
+    lower.includes('host3000') ||
+    lower.includes(':3000')
+  ) {
+    return true
+  }
+  try {
+    const normalized = lower.startsWith('http') ? lower : `https://${lower}`
+    const parsed = new URL(normalized)
+    return (
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '0.0.0.0' ||
+      parsed.hostname.endsWith('.local') ||
+      parsed.port === '3000'
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Resolves the application base URL on the client (browser) or during SSR.
+ * Always prioritizes the active window location or production environment variables,
+ * and never returns a development or localhost URL in production.
  */
 export function getClientAppUrl(): string {
   if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin
+    const origin = window.location.origin.trim().replace(/\/$/, '')
+    if (origin) {
+      return origin
+    }
   }
-  const envUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-  return envUrl.replace(/\/$/, '')
+
+  // SSR / fallback: Check production environment variables (excluding localhost/dev URLs)
+  const envCandidates = [
+    process.env.APP_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_VERCEL_URL,
+    process.env.VERCEL_URL,
+  ]
+
+  for (const candidate of envCandidates) {
+    if (candidate && !isLocalhostOrDevUrl(candidate)) {
+      const trimmed = candidate.trim().replace(/\/$/, '')
+      return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+    }
+  }
+
+  // Fallback to any configured env variable
+  const rawEnv = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || ''
+  if (rawEnv) {
+    const trimmed = rawEnv.trim().replace(/\/$/, '')
+    return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+  }
+
+  return ''
 }
 
 /**
  * Resolves the application base URL on the server.
- * Uses NEXT_PUBLIC_APP_URL, VERCEL_URL, or request headers (forwarded proto/host).
+ * Uses production environment variables (APP_URL, VERCEL_PROJECT_PRODUCTION_URL,
+ * NEXT_PUBLIC_APP_URL, VERCEL_URL) and request headers (origin, referer, x-forwarded-host).
+ * Strips localhost:3000 / Host3000 in production, ensuring Paystack and Brevo never redirect
+ * customers to development URLs.
  */
-export function getServerAppUrl(req?: { headers?: { get: (name: string) => string | null } }): string {
-  const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL
-  if (envUrl) {
-    const trimmed = envUrl.trim().replace(/\/$/, '')
-    return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+export function getServerAppUrl(req?: {
+  headers?: { get: (name: string) => string | null }
+  url?: string
+}): string {
+  // 1. Check production environment variables (excluding localhost/dev URLs)
+  const prodEnvCandidates = [
+    process.env.APP_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_VERCEL_URL,
+    process.env.VERCEL_URL,
+  ]
+
+  for (const candidate of prodEnvCandidates) {
+    if (candidate && !isLocalhostOrDevUrl(candidate)) {
+      const trimmed = candidate.trim().replace(/\/$/, '')
+      return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+    }
   }
 
-  const vercelUrl = process.env.VERCEL_URL
-  if (vercelUrl) {
-    const trimmed = vercelUrl.trim().replace(/\/$/, '')
-    return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+  // 2. Check incoming request headers (origin, referer, x-forwarded-host)
+  if (req?.headers) {
+    // Check origin header (sent on POST/fetch requests from browser)
+    const origin = req.headers.get('origin')
+    if (origin && !isLocalhostOrDevUrl(origin)) {
+      return origin.trim().replace(/\/$/, '')
+    }
+
+    // Check referer header
+    const referer = req.headers.get('referer')
+    if (referer) {
+      try {
+        const refUrl = new URL(referer)
+        if (!isLocalhostOrDevUrl(refUrl.origin)) {
+          return refUrl.origin.replace(/\/$/, '')
+        }
+      } catch {}
+    }
+
+    // Check x-forwarded-host
+    const fwdHost = req.headers.get('x-forwarded-host')
+    if (fwdHost && !isLocalhostOrDevUrl(fwdHost)) {
+      const proto = req.headers.get('x-forwarded-proto') || 'https'
+      return `${proto}://${fwdHost.trim().replace(/\/$/, '')}`
+    }
+
+    // Check host header (if not localhost)
+    const host = req.headers.get('host')
+    if (host && !isLocalhostOrDevUrl(host)) {
+      const proto = req.headers.get('x-forwarded-proto') || 'https'
+      return `${proto}://${host.trim().replace(/\/$/, '')}`
+    }
+  }
+
+  // 3. Fallback: If in local development, use available env or host
+  for (const candidate of [process.env.APP_URL, process.env.NEXT_PUBLIC_APP_URL, process.env.VERCEL_URL]) {
+    if (candidate) {
+      const trimmed = candidate.trim().replace(/\/$/, '')
+      return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+    }
   }
 
   if (req?.headers) {
-    const proto = req.headers.get('x-forwarded-proto') || 'https'
+    const proto = req.headers.get('x-forwarded-proto') || 'http'
     const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
     if (host) {
-      return `${proto}://${host}`
+      return `${proto}://${host.trim().replace(/\/$/, '')}`
     }
+  }
+
+  if (req?.url) {
+    try {
+      return new URL(req.url).origin
+    } catch {}
   }
 
   return ''

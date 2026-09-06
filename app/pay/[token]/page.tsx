@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import {
   Zap,
   CheckCircle2,
@@ -13,6 +14,8 @@ import {
   FileText,
   Clock,
   ShieldCheck,
+  Printer,
+  ExternalLink,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -106,6 +109,10 @@ function PublicPaymentPageInner() {
       if (res.ok && data.status === 'success') {
         setPaymentSuccess(true)
         toast.success('Payment verified successfully!')
+        if (typeof window !== 'undefined') {
+          const newUrl = `/pay/${encodeURIComponent(token)}?reference=${encodeURIComponent(reference)}&verified=true`
+          window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl)
+        }
       } else {
         toast.error(data.error || 'Payment verification failed')
       }
@@ -122,6 +129,7 @@ function PublicPaymentPageInner() {
 
     setIsProcessing(true)
     try {
+      const clientOrigin = typeof window !== 'undefined' ? window.location.origin : ''
       const res = await fetch('/api/paystack/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,6 +139,7 @@ function PublicPaymentPageInner() {
           amount: linkData.amount,
           invoiceNumber: linkData.invoiceNumber,
           clientName: linkData.clientName,
+          origin: clientOrigin,
         }),
       })
 
@@ -228,19 +237,40 @@ function PublicPaymentPageInner() {
                   <p className="text-sm text-muted">This payment link has been revoked by Lexmedia admin.</p>
                 </ErrorReveal>
               ) : isAlreadyPaid ? (
-                <SuccessReveal className="text-center py-6 space-y-3">
-                  <div className="w-16 h-16 rounded-full bg-success-50 text-success-600 flex items-center justify-center mx-auto">
+                <SuccessReveal className="text-center py-6 space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-success-50 text-success-600 flex items-center justify-center mx-auto shadow-sm">
                     <CheckCircle2 size={36} />
                   </div>
                   <Badge variant="success" size="md">
                     Payment Complete
                   </Badge>
                   <h2 className="text-2xl font-bold text-gray-900 mt-2">Thank You!</h2>
-                  <p className="text-sm text-muted max-w-sm mx-auto">
-                    Payment for invoice <span className="font-semibold text-gray-900">{linkData.invoiceNumber}</span> has been completed successfully.
+                  <p className="text-sm text-muted max-w-sm mx-auto leading-relaxed">
+                    Payment of <span className="font-semibold text-gray-900">{formatCurrency(linkData.amount || 0)}</span> for invoice <span className="font-semibold text-gray-900">{linkData.invoiceNumber}</span> has been confirmed.
                   </p>
-                  <div className="pt-4 text-xs text-muted border-t border-border">
-                    Transaction Ref: <code className="font-mono text-gray-700">{refQuery || 'Verified'}</code>
+                  
+                  <div className="pt-4 text-xs text-muted border-t border-border flex flex-col items-center gap-3">
+                    <div>
+                      Transaction Ref: <code className="font-mono text-gray-700 bg-gray-100 px-2 py-1 rounded">{refQuery || linkData.paystackReference || 'Verified'}</code>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                      <Link
+                        href={`/pay/${encodeURIComponent(token)}/thank-you?reference=${encodeURIComponent(refQuery || linkData.paystackReference || 'verified')}`}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-gray-900 text-white hover:bg-black transition-colors shadow-sm"
+                      >
+                        <FileText size={14} />
+                        View Full Receipt
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Printer size={14} />
+                        Print Confirmation
+                      </button>
+                    </div>
                   </div>
                 </SuccessReveal>
               ) : (
