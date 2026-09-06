@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminDb, getAdminBucket } from '@/lib/firebase/admin'
+import { getAdminDb } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
 import { FieldValue } from 'firebase-admin/firestore'
+import { supabase } from '@/lib/supabase/client'
 import fs from 'fs'
 import path from 'path'
 
@@ -56,14 +57,11 @@ export async function POST(req: NextRequest) {
         console.warn('Failed to delete local file copy:', err)
       }
       
-      // 2. Delete from Firebase Storage bucket
+      // 2. Delete from Supabase Storage private bucket 'delivery-files'
       try {
-        const bucket = getAdminBucket()
-        await bucket.file(storagePath).delete()
+        await supabase.storage.from('delivery-files').remove([storagePath])
       } catch (err: any) {
-        if (err.code !== 404) {
-          console.warn('Failed to delete Firebase Storage file:', err.message)
-        }
+        console.warn('Failed to delete Supabase Storage file:', err?.message)
       }
     }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminBucket } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
 import { getServerDoc } from '@/lib/firebase/serverDb'
+import { supabase } from '@/lib/supabase/client'
 import fs from 'fs'
 import path from 'path'
 
@@ -31,14 +31,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Storage path not found' }, { status: 404 })
     }
 
-    // 1. Primary: Stream from Firebase Storage bucket
+    // 1. Primary: Stream from Supabase Storage private bucket 'delivery-files'
     try {
-      const bucket = getAdminBucket()
-      const storageFile = bucket.file(storagePath)
-      const [exists] = await storageFile.exists()
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('delivery-files')
+        .download(storagePath)
 
-      if (exists) {
-        const [fileBuffer] = await storageFile.download()
+      if (!downloadError && fileData) {
+        const arrayBuffer = await fileData.arrayBuffer()
+        const fileBuffer = Buffer.from(arrayBuffer)
         return new NextResponse(new Uint8Array(fileBuffer), {
           status: 200,
           headers: {
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
         })
       }
     } catch (storageErr) {
-      console.warn('[Files API] Could not load from Firebase Storage, checking disk fallback:', storageErr)
+      console.warn('[Files API] Could not load from Supabase Storage, checking disk fallback:', storageErr)
     }
 
     // 2. Secondary: Fallback to local disk (e.g. dev environment uploads)

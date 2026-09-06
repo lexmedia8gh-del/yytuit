@@ -198,10 +198,10 @@ function ThankYouPageInner() {
                     <span className="text-muted">Invoice Number</span>
                     <span className="font-mono font-bold text-gray-900">{invoiceNum}</span>
                   </div>
-                  {projectData?.title && (
+                  {projectData?.name && (
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted">Project</span>
-                      <span className="font-semibold text-gray-900">{projectData.title}</span>
+                      <span className="font-semibold text-gray-900">{projectData.name}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-center text-sm">

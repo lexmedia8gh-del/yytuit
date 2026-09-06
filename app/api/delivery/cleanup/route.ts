@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminDb, getAdminBucket } from '@/lib/firebase/admin'
+import { getAdminDb } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { supabase } from '@/lib/supabase/client'
 import nodePath from 'path'
 import nodeFs from 'fs'
 
@@ -72,14 +73,11 @@ export async function POST(req: NextRequest) {
               console.warn(`[Cleanup] Local delete failed for ${storagePath}:`, e.message)
             }
 
-            // 2. Delete from Firebase Storage
+            // 2. Delete from Supabase Storage private bucket 'delivery-files'
             try {
-              const bucket = getAdminBucket()
-              await bucket.file(storagePath).delete()
+              await supabase.storage.from('delivery-files').remove([storagePath])
             } catch (e: any) {
-              if (e.code !== 404) {
-                console.warn(`[Cleanup] Storage delete failed for ${storagePath}:`, e.message)
-              }
+              console.warn(`[Cleanup] Storage delete failed for ${storagePath}:`, e?.message)
             }
           }
 

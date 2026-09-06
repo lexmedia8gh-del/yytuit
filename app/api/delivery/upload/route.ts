@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminBucket, requireAdmin } from '@/lib/firebase/admin'
+import { requireAdmin } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
 import { getServerDoc, setServerDoc, updateServerDoc, queryServerDocs } from '@/lib/firebase/serverDb'
 import { FieldValue } from 'firebase-admin/firestore'
 import { sendDeliveryPaymentRequiredEmail } from '@/lib/services/brevo'
 import { getServerAppUrl } from '@/lib/utils'
+import { supabase } from '@/lib/supabase/client'
 import fs from 'fs'
 import path from 'path'
 
@@ -36,32 +37,28 @@ export async function POST(req: NextRequest) {
     const id = fileDocId || Math.random().toString(36).substring(2, 15)
     const storagePath = `deliveries/${projectId}/${deliveryId}/${id}/${sanitizedName}`
 
-    // 1. Primary: Upload directly to Firebase Storage bucket if available
+    // 1. Primary: Upload directly to Supabase Storage private bucket 'delivery-files'
     let uploadedToCloud = false
     let cloudError: string | null = null
     try {
-      const bucket = getAdminBucket()
-      const storageFile = bucket.file(storagePath)
-      await storageFile.save(buffer, {
-        metadata: {
+      const { data, error } = await supabase.storage
+        .from('delivery-files')
+        .upload(storagePath, buffer, {
           contentType: file.type || 'application/octet-stream',
-          metadata: {
-            deliveryId,
-            projectId,
-            clientId,
-            originalName: file.name,
-            fileDocId: id,
-          },
-        },
-      })
+          upsert: true,
+        })
+
+      if (error) {
+        throw new Error(error.message)
+      }
       uploadedToCloud = true
-      console.log('[Upload] Successfully uploaded to Firebase Storage bucket:', storagePath)
+      console.log('[Upload] Successfully uploaded to Supabase Storage bucket delivery-files:', storagePath)
     } catch (err: any) {
-      console.warn('[Upload] Firebase Storage bucket upload notice:', err?.message)
+      console.warn('[Upload] Supabase Storage bucket upload notice:', err?.message)
       cloudError = err?.message || 'Storage bucket notice'
     }
 
-    // 2. Secondary: Save to local server disk
+    // 2. Secondary: Save to local server disk (fallback)
     let savedToDisk = false
     try {
       const relativeStorageDir = path.join('uploads', 'deliveries', projectId, deliveryId, id)

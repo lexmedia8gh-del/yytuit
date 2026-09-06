@@ -1,6 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -18,13 +17,6 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
 
 export const db = getFirestore(app)
 export const auth = getAuth(app)
-
-// Explicitly pass the bucket URL to avoid default bucket resolution issues.
-// Firebase Storage requires the correct bucket format:
-//   Old format: <project-id>.appspot.com
-//   New format: <project-id>.firebasestorage.app
-// The storageBucket in firebaseConfig is used automatically by getStorage(app).
-export const storage = getStorage(app)
 
 export default app
 

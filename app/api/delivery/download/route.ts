@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
 import { queryServerDocs, getServerDoc, updateServerDoc } from '@/lib/firebase/serverDb'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { supabase } from '@/lib/supabase/client'
 
 export async function POST(req: NextRequest) {
   try {
@@ -70,9 +71,21 @@ export async function POST(req: NextRequest) {
       updatedAt: FieldValue.serverTimestamp(),
     })
 
+    // Generate secure signed URL with appropriate expiration time (3600 seconds = 1 hour)
+    let downloadUrl = fileData.downloadUrl
+    if (fileData.storagePath) {
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from('delivery-files')
+        .createSignedUrl(fileData.storagePath, 3600)
+
+      if (!signedError && signedData?.signedUrl) {
+        downloadUrl = signedData.signedUrl
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      downloadUrl: fileData.downloadUrl,
+      downloadUrl,
       fileName: fileData.fileName || fileData.originalName,
     })
   } catch (error: any) {

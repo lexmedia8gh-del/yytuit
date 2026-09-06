@@ -1,11 +1,5 @@
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-  type UploadTaskSnapshot,
-} from 'firebase/storage'
-import { storage, auth } from './config'
+import { supabase } from '@/lib/supabase/client'
+import { auth } from './config'
 
 export interface UploadProgressCallback {
   (progress: number, bytesTransferred: number, totalBytes: number): void
@@ -91,12 +85,7 @@ async function uploadViaServerApi(
 }
 
 /**
- * Upload a delivery file.
- * Strategy:
- * 1. Tries direct Firebase Storage client SDK (if bucket is active & CORS is set).
- * 2. If Firebase Storage fails or errors out (e.g. bucket non-existent / billing / CORS),
- *    immediately falls back to server API endpoint with real XHR progress tracking.
- * This guarantees the upload ALWAYS completes and NEVER hangs indefinitely.
+ * Upload a delivery file to Supabase Storage bucket 'delivery-files'.
  */
 export async function uploadDeliveryFile(
   projectId: string,
@@ -106,70 +95,23 @@ export async function uploadDeliveryFile(
   onProgress?: UploadProgressCallback,
   clientId?: string
 ): Promise<{ downloadUrl: string; storagePath: string }> {
-  const sanitizedName = file.name.replace(/[^a-zA-Z0-9._\- ]/g, '_').trim() || 'file'
-  const storagePath = `deliveries/${projectId}/${deliveryId}/${fileId}/${sanitizedName}`
-
-  // 1. First attempt: Direct client upload to Firebase Storage
-  if (storage) {
-    try {
-      const fileRef = ref(storage, storagePath)
-      const uploadTask = uploadBytesResumable(fileRef, file, {
-        contentType: file.type || 'application/octet-stream',
-        customMetadata: {
-          projectId,
-          deliveryId,
-          clientId: clientId || '',
-          originalName: file.name,
-          fileDocId: fileId,
-        },
-      })
-
-      const downloadUrl = await new Promise<string>((resolve, reject) => {
-        uploadTask.on(
-          'state_changed',
-          (snapshot: UploadTaskSnapshot) => {
-            if (onProgress && snapshot.totalBytes > 0) {
-              const percent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-              onProgress(percent, snapshot.bytesTransferred, snapshot.totalBytes)
-            }
-          },
-          (error) => {
-            console.warn('[Storage] Client direct upload error:', error.code, error.message)
-            reject(error)
-          },
-          async () => {
-            try {
-              const url = await getDownloadURL(uploadTask.snapshot.ref)
-              resolve(url)
-            } catch (urlErr) {
-              reject(urlErr)
-            }
-          }
-        )
-      })
-
-      console.log('[Storage] Direct Firebase Storage upload succeeded for:', file.name)
-      return { downloadUrl, storagePath }
-    } catch (directUploadErr) {
-      console.warn('[Storage] Direct Firebase Storage upload failed, falling back to server API:', directUploadErr)
-    }
-  }
-
-  // 2. Reliable Fallback: Server API upload (saves to server storage with streaming download endpoint)
+  // Uses server API upload which stores in Supabase Storage private bucket 'delivery-files'
   return await uploadViaServerApi(projectId, deliveryId, fileId, clientId || '', file, onProgress)
 }
 
 /**
- * Delete a delivery file from Firebase Storage
+ * Delete a delivery file from Supabase Storage bucket 'delivery-files'
  */
 export async function deleteDeliveryFile(storagePath: string): Promise<void> {
   if (!storagePath) return
   try {
-    const fileRef = ref(storage, storagePath)
-    await deleteObject(fileRef)
+    const { error } = await supabase.storage
+      .from('delivery-files')
+      .remove([storagePath])
+    if (error) {
+      console.warn('Supabase storage delete warning:', error.message)
+    }
   } catch (error: any) {
-    // Log but don't throw — Firestore metadata should still be removed even if storage delete fails
-    console.warn('Storage delete warning:', error?.code, error?.message)
+    console.warn('Storage delete warning:', error?.message)
   }
 }
-

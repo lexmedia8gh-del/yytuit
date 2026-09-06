@@ -232,6 +232,7 @@ export interface ClientLink {
   currency?: string
   status: 'Pending Payment' | 'Payment Processing' | 'Paid' | 'Failed' | 'Expired' | 'Cancelled' | 'active' | 'disabled' | 'archived'
   paymentStatus: PaymentStatus
+  paystackReference?: string
   expiresAt?: Timestamp
   viewCount: number
   lastViewedAt?: Timestamp
