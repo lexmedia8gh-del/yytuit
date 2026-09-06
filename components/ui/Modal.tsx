@@ -87,33 +87,33 @@ export function Modal({
       >
         {/* Header */}
         {(title || !hideClose) && (
-          <div className="flex items-start justify-between p-6 border-b border-border shrink-0">
-            <div>
+          <div className="flex items-start justify-between p-4 sm:p-6 border-b border-border shrink-0">
+            <div className="pr-2">
               {title && (
-                <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{title}</h2>
               )}
               {subtitle && (
-                <p className="text-sm text-muted mt-0.5">{subtitle}</p>
+                <p className="text-xs sm:text-sm text-muted mt-0.5">{subtitle}</p>
               )}
             </div>
             {!hideClose && (
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-muted transition-colors shrink-0 ml-4"
+                className="p-2 rounded-lg hover:bg-gray-100 text-muted transition-colors shrink-0 -mr-1 -mt-1 touch-manipulation"
                 aria-label="Close"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             )}
           </div>
         )}
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="shrink-0 p-6 border-t border-border bg-gray-50 rounded-b-2xl">
+          <div className="shrink-0 p-4 sm:p-6 border-t border-border bg-gray-50 rounded-b-2xl">
             {footer}
           </div>
         )}

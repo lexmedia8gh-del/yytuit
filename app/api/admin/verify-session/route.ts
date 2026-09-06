@@ -1,5 +1,5 @@
-﻿import { NextRequest, NextResponse } from "next/server"
-import { getAdminAuth } from "@/lib/firebase/admin"
+import { NextRequest, NextResponse } from "next/server"
+import { getAdminAuth, isAuthorizedAdminEmail } from "@/lib/firebase/admin"
 
 /**
  * POST /api/admin/verify-session
@@ -17,9 +17,8 @@ export async function POST(req: NextRequest) {
     const auth = getAdminAuth()
     const decoded = await auth.verifyIdToken(token)
 
-    const authorizedEmail = process.env.ADMIN_EMAIL || "lexmedia8gh@gmail.com"
     const hasAdminClaim = decoded.admin === true
-    const isAuthorizedEmail = decoded.email === authorizedEmail
+    const isAuthorizedEmail = isAuthorizedAdminEmail(decoded.email)
 
     if (!hasAdminClaim && !isAuthorizedEmail) {
       return NextResponse.json(
@@ -29,6 +28,15 @@ export async function POST(req: NextRequest) {
         },
         { status: 403 }
       )
+    }
+
+    // Auto-bootstrap: ensure the custom claim is assigned so future requests have admin: true
+    if (!hasAdminClaim && isAuthorizedEmail) {
+      try {
+        await auth.setCustomUserClaims(decoded.uid, { admin: true })
+      } catch (claimErr) {
+        console.warn("[verify-session] Non-fatal: could not grant custom claim:", claimErr)
+      }
     }
 
     return NextResponse.json({ ok: true, email: decoded.email, uid: decoded.uid })

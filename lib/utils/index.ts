@@ -192,9 +192,64 @@ export function getFirebaseErrorMessage(code: string): string {
       'Too many failed attempts. Please try again later.',
     'auth/network-request-failed': 'Network error. Please check your connection.',
     'auth/invalid-credential': 'Invalid email or password.',
+    'auth/unauthorized-domain':
+      'This domain is not authorized for OAuth in Firebase Console. Please add this deployment domain to Firebase Authentication > Settings > Authorized domains.',
+    'auth/popup-blocked':
+      'Sign-in popup was blocked by your browser. Please allow popups for this site.',
+    'auth/popup-closed-by-user':
+      'Sign-in popup was closed before completing authentication.',
+    'auth/cancelled-popup-request':
+      'Another sign-in attempt is already in progress.',
+    'auth/operation-not-allowed':
+      'Google Sign-In is not enabled in your Firebase Authentication console.',
+    'auth/user-disabled':
+      'This administrator account has been disabled.',
+    'auth/unauthorized-admin':
+      'This Google account is not authorized as a LexMedia admin.',
     'permission-denied': 'You do not have permission to perform this action.',
   }
   return messages[code] ?? 'An unexpected error occurred. Please try again.'
+}
+
+// ─── URL Helpers ─────────────────────────────────────────────
+/**
+ * Resolves the application base URL on the client (browser).
+ * Never returns localhost unless explicitly run in a localhost environment.
+ */
+export function getClientAppUrl(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin
+  }
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  return envUrl.replace(/\/$/, '')
+}
+
+/**
+ * Resolves the application base URL on the server.
+ * Uses NEXT_PUBLIC_APP_URL, VERCEL_URL, or request headers (forwarded proto/host).
+ */
+export function getServerAppUrl(req?: { headers?: { get: (name: string) => string | null } }): string {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL
+  if (envUrl) {
+    const trimmed = envUrl.trim().replace(/\/$/, '')
+    return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+  }
+
+  const vercelUrl = process.env.VERCEL_URL
+  if (vercelUrl) {
+    const trimmed = vercelUrl.trim().replace(/\/$/, '')
+    return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+  }
+
+  if (req?.headers) {
+    const proto = req.headers.get('x-forwarded-proto') || 'https'
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+    if (host) {
+      return `${proto}://${host}`
+    }
+  }
+
+  return ''
 }
 
 // ─── WhatsApp Link Generation ────────────────────────────────

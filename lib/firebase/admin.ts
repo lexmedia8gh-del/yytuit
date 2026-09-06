@@ -6,16 +6,21 @@ export function getAdminDb() {
     const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
     const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    const storageBucket =
+      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+      process.env.FIREBASE_STORAGE_BUCKET ||
+      `${projectId || 'lexmedia-client-system'}.appspot.com`;
 
     if (!projectId || !clientEmail || !privateKey) {
       throw new Error(
-        'Firebase Admin SDK is not configured. Missing FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, or FIREBASE_ADMIN_PRIVATE_KEY in .env.local.'
+        'Firebase Admin SDK is not configured. Missing FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, or FIREBASE_ADMIN_PRIVATE_KEY in environment.'
       );
     }
 
     try {
       admin.initializeApp({
         credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+        storageBucket,
       });
     } catch (error: any) {
       console.error('Firebase Admin init error:', error.stack);
@@ -30,19 +35,47 @@ export function getAdminStorage() {
   getAdminDb();
   return admin.storage();
 }
+
+export function getAdminBucket(customBucketName?: string) {
+  const storage = getAdminStorage();
+  const bucketName =
+    customBucketName ||
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+    process.env.FIREBASE_STORAGE_BUCKET ||
+    `${process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'lexmedia-client-system'}.appspot.com`;
+  return storage.bucket(bucketName);
+}
+
 export function getAdminAuth() {
   getAdminDb();
   return admin.auth();
 }
 
 /**
+ * Checks whether an email address is in the list of authorized administrator emails.
+ * Supports comma-separated emails in ADMIN_EMAIL and includes standard LexMedia admins.
+ */
+export function isAuthorizedAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const userEmail = email.trim().toLowerCase();
+  const rawAdminEmails = process.env.ADMIN_EMAIL || 'lexmedia8gh@gmail.com,uselexmedaflao@gmail.com';
+  const allowed = rawAdminEmails
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  return (
+    allowed.includes(userEmail) ||
+    userEmail === 'uselexmedaflao@gmail.com' ||
+    userEmail === 'lexmedia8gh@gmail.com'
+  );
+}
+
+/**
  * Verifies that a request was made by the authorized admin.
  * Authorization is determined by:
  *  1. Firebase ID token custom claim: admin === true  (primary, tamper-proof)
- *  2. Email matches ADMIN_EMAIL env var               (bootstrap fallback)
- *
- * The old Firestore user doc lookup and the 'active-admin-session' dev
- * bypass have been removed to prevent unauthorized access in production.
+ *  2. Email matches authorized admin emails           (bootstrap fallback)
  */
 export async function requireAdmin(request: NextRequest) {
   const session = request.cookies.get('__session')?.value;
@@ -66,11 +99,10 @@ export async function requireAdmin(request: NextRequest) {
     // Primary: check the Firebase custom claim set via /api/admin/grant-claim
     const hasAdminClaim = decoded.admin === true;
 
-    // Bootstrap fallback: allow the configured ADMIN_EMAIL even before the claim is granted
-    const authorizedEmail = process.env.ADMIN_EMAIL || 'lexmedia8gh@gmail.com';
-    const isAuthorizedEmail = decoded.email === authorizedEmail;
+    // Bootstrap fallback: allow authorized emails
+    const isAuthorized = isAuthorizedAdminEmail(decoded.email);
 
-    if (!hasAdminClaim && !isAuthorizedEmail) {
+    if (!hasAdminClaim && !isAuthorized) {
       console.warn(`[Auth] Unauthorized access attempt by: ${decoded.email}`);
       return { ok: false as const, status: 403, error: 'Administrator access required.' };
     }

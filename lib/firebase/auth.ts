@@ -69,6 +69,7 @@ export async function signInWithEmail(email: string, password: string) {
 
 export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
   const credential = await signInWithPopup(auth, provider)
   const fbUser = credential.user
   const token = await fbUser.getIdToken(true) // force-refresh to get latest custom claims
@@ -91,7 +92,8 @@ export async function signInWithGoogle() {
   }
 
   if (typeof document !== 'undefined') {
-    document.cookie = `__session=${token}; path=/; max-age=604800`
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:'
+    document.cookie = `__session=${token}; path=/; max-age=604800; SameSite=Lax${isHttps ? '; Secure' : ''}`
   }
 
   const user: User = {

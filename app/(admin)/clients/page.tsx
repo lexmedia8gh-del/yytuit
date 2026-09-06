@@ -250,8 +250,8 @@ export default function ClientsPage() {
       />
 
       {/* Controls & Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-white p-4 rounded-2xl border border-border shadow-sm">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between items-stretch sm:items-center bg-white p-3.5 sm:p-4 rounded-2xl border border-border shadow-sm">
+        <div className="relative flex-1 w-full max-w-none sm:max-w-md">
           <Input
             placeholder="Search by name, email, company, or phone..."
             value={search}
@@ -260,7 +260,7 @@ export default function ClientsPage() {
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-end gap-3">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Filter size={16} />
             <span>Status:</span>
@@ -268,7 +268,7 @@ export default function ClientsPage() {
           <select
             value={statusFilter}
             onChange={(e: any) => setStatusFilter(e.target.value)}
-            className="px-3.5 py-2 rounded-xl border border-border bg-white text-sm font-medium focus:ring-2 focus:ring-accent-500 outline-none"
+            className="flex-1 sm:flex-none px-3.5 py-2.5 sm:py-2 rounded-xl border border-border bg-white text-sm font-medium focus:ring-2 focus:ring-accent-500 outline-none min-h-[44px] sm:min-h-[38px]"
           >
             <option value="all">All Clients</option>
             <option value="active">Active Only</option>
@@ -304,116 +304,216 @@ export default function ClientsPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border bg-gray-50/50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <th className="py-4 px-6">Client Name</th>
-                  <th className="py-4 px-6">Contact Info</th>
-                  <th className="py-4 px-6">Company</th>
-                  <th className="py-4 px-6">Status</th>
-                  <th className="py-4 px-6">Projects</th>
-                  <th className="py-4 px-6">Total Paid</th>
-                  <th className="py-4 px-6">Outstanding</th>
-                  <th className="py-4 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border text-sm">
-                {filteredClients.map((client) => (
-                  <tr key={client.id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="font-semibold text-gray-900">{client.fullName}</div>
-                      <div className="text-xs text-muted">
-                        Added {client.createdAt ? formatDate(client.createdAt) : 'Recently'}
-                      </div>
-                    </td>
-
-                    <td className="py-4 px-6 space-y-1">
-                      <div className="flex items-center gap-1.5 text-gray-600 text-xs">
-                        <Mail size={13} className="text-gray-400 shrink-0" />
-                        <span className="truncate max-w-[180px]">{client.email}</span>
-                      </div>
-                      {client.phone && (
-                        <div className="flex items-center gap-1.5 text-gray-600 text-xs">
-                          <Phone size={13} className="text-gray-400 shrink-0" />
-                          <span>{client.phone}</span>
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="py-4 px-6">
-                      {client.company ? (
-                        <div className="flex items-center gap-1.5 text-gray-700">
-                          <Building2 size={14} className="text-gray-400 shrink-0" />
+          <>
+            {/* Mobile Cards View (shown on screens < 768px) */}
+            <div className="block md:hidden divide-y divide-border">
+              {filteredClients.map((client) => (
+                <div key={client.id} className="p-4 space-y-3 hover:bg-gray-50/50 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <Link
+                        href={`/clients/${client.id}`}
+                        className="font-semibold text-gray-900 hover:text-accent-600 transition-colors inline-block"
+                      >
+                        {client.fullName}
+                      </Link>
+                      {client.company && (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-600 mt-0.5">
+                          <Building2 size={13} className="text-gray-400 shrink-0" />
                           <span>{client.company}</span>
                         </div>
-                      ) : (
-                        <span className="text-xs text-muted">—</span>
                       )}
-                    </td>
+                    </div>
+                    <Badge
+                      variant={client.status === 'active' ? 'success' : 'muted'}
+                      size="sm"
+                    >
+                      {client.status === 'active' ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
 
-                    <td className="py-4 px-6">
-                      <Badge
-                        variant={client.status === 'active' ? 'success' : 'muted'}
-                        size="sm"
-                      >
-                        {client.status === 'active' ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </td>
-
-                    <td className="py-4 px-6 font-medium text-gray-700">
-                      {client.projectCount || 0}
-                    </td>
-
-                    <td className="py-4 px-6 font-semibold text-success-600">
-                      {formatCurrency(client.totalPaid || 0)}
-                    </td>
-
-                    <td className="py-4 px-6 font-semibold text-danger-600">
-                      {formatCurrency(client.outstandingBalance || 0)}
-                    </td>
-
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link
-                          href={`/clients/${client.id}`}
-                          className="p-2 rounded-xl text-gray-500 hover:text-accent-600 hover:bg-accent-50 transition-colors"
-                          title="View Client Profile"
-                        >
-                          <Eye size={16} />
-                        </Link>
-                        <button
-                          onClick={() => openEditModal(client)}
-                          className="p-2 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                          title="Edit Client"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => setDeactivatingClient(client)}
-                          className={`p-2 rounded-xl transition-colors ${
-                            client.status === 'active'
-                              ? 'text-gray-500 hover:text-danger-600 hover:bg-danger-50'
-                              : 'text-gray-500 hover:text-success-600 hover:bg-success-50'
-                          }`}
-                          title={client.status === 'active' ? 'Deactivate Client' : 'Activate Client'}
-                        >
-                          <Power size={16} />
-                        </button>
-                        <button
-                          onClick={() => setDeletingClient(client)}
-                          className="p-2 rounded-xl text-gray-500 hover:text-danger-600 hover:bg-danger-50 transition-colors"
-                          title="Delete Client"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Mail size={13} className="text-gray-400 shrink-0" />
+                      <a href={`mailto:${client.email}`} className="text-accent-600 hover:underline truncate">
+                        {client.email}
+                      </a>
+                    </div>
+                    {client.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone size={13} className="text-gray-400 shrink-0" />
+                        <a href={`tel:${client.phone}`} className="hover:underline">
+                          {client.phone}
+                        </a>
                       </div>
-                    </td>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100 text-center text-xs">
+                    <div className="bg-gray-50 p-2 rounded-lg">
+                      <div className="text-gray-400 text-[10px] uppercase font-medium">Projects</div>
+                      <div className="font-semibold text-gray-800 mt-0.5">{client.projectCount || 0}</div>
+                    </div>
+                    <div className="bg-success-50/50 p-2 rounded-lg">
+                      <div className="text-success-600 text-[10px] uppercase font-medium">Paid</div>
+                      <div className="font-semibold text-success-700 mt-0.5">{formatCurrency(client.totalPaid || 0)}</div>
+                    </div>
+                    <div className="bg-danger-50/50 p-2 rounded-lg">
+                      <div className="text-danger-600 text-[10px] uppercase font-medium">Due</div>
+                      <div className="font-semibold text-danger-700 mt-0.5">{formatCurrency(client.outstandingBalance || 0)}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1.5 pt-2">
+                    <Link
+                      href={`/clients/${client.id}`}
+                      className="p-2.5 rounded-xl text-gray-600 hover:text-accent-600 hover:bg-accent-50 transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
+                      title="View Profile"
+                    >
+                      <Eye size={18} />
+                    </Link>
+                    <button
+                      onClick={() => openEditModal(client)}
+                      className="p-2.5 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
+                      title="Edit Client"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button
+                      onClick={() => setDeactivatingClient(client)}
+                      className={`p-2.5 rounded-xl transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center ${
+                        client.status === 'active'
+                          ? 'text-gray-600 hover:text-danger-600 hover:bg-danger-50'
+                          : 'text-gray-600 hover:text-success-600 hover:bg-success-50'
+                      }`}
+                      title={client.status === 'active' ? 'Deactivate' : 'Activate'}
+                    >
+                      <Power size={18} />
+                    </button>
+                    <button
+                      onClick={() => setDeletingClient(client)}
+                      className="p-2.5 rounded-xl text-gray-600 hover:text-danger-600 hover:bg-danger-50 transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
+                      title="Delete Client"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View (shown on md: and above) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border bg-gray-50/50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="py-4 px-6">Client Name</th>
+                    <th className="py-4 px-6">Contact Info</th>
+                    <th className="py-4 px-6">Company</th>
+                    <th className="py-4 px-6">Status</th>
+                    <th className="py-4 px-6">Projects</th>
+                    <th className="py-4 px-6">Total Paid</th>
+                    <th className="py-4 px-6">Outstanding</th>
+                    <th className="py-4 px-6 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border text-sm">
+                  {filteredClients.map((client) => (
+                    <tr key={client.id} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="py-4 px-6">
+                        <div className="font-semibold text-gray-900">{client.fullName}</div>
+                        <div className="text-xs text-muted">
+                          Added {client.createdAt ? formatDate(client.createdAt) : 'Recently'}
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-6 space-y-1">
+                        <div className="flex items-center gap-1.5 text-gray-600 text-xs">
+                          <Mail size={13} className="text-gray-400 shrink-0" />
+                          <span className="truncate max-w-[180px]">{client.email}</span>
+                        </div>
+                        {client.phone && (
+                          <div className="flex items-center gap-1.5 text-gray-600 text-xs">
+                            <Phone size={13} className="text-gray-400 shrink-0" />
+                            <span>{client.phone}</span>
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-6">
+                        {client.company ? (
+                          <div className="flex items-center gap-1.5 text-gray-700">
+                            <Building2 size={14} className="text-gray-400 shrink-0" />
+                            <span>{client.company}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted">—</span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-6">
+                        <Badge
+                          variant={client.status === 'active' ? 'success' : 'muted'}
+                          size="sm"
+                        >
+                          {client.status === 'active' ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </td>
+
+                      <td className="py-4 px-6 font-medium text-gray-700">
+                        {client.projectCount || 0}
+                      </td>
+
+                      <td className="py-4 px-6 font-semibold text-success-600">
+                        {formatCurrency(client.totalPaid || 0)}
+                      </td>
+
+                      <td className="py-4 px-6 font-semibold text-danger-600">
+                        {formatCurrency(client.outstandingBalance || 0)}
+                      </td>
+
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/clients/${client.id}`}
+                            className="p-2 rounded-xl text-gray-500 hover:text-accent-600 hover:bg-accent-50 transition-colors"
+                            title="View Client Profile"
+                          >
+                            <Eye size={16} />
+                          </Link>
+                          <button
+                            onClick={() => openEditModal(client)}
+                            className="p-2 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Edit Client"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setDeactivatingClient(client)}
+                            className={`p-2 rounded-xl transition-colors ${
+                              client.status === 'active'
+                                ? 'text-gray-500 hover:text-danger-600 hover:bg-danger-50'
+                                : 'text-gray-500 hover:text-success-600 hover:bg-success-50'
+                            }`}
+                            title={client.status === 'active' ? 'Deactivate Client' : 'Activate Client'}
+                          >
+                            <Power size={16} />
+                          </button>
+                          <button
+                            onClick={() => setDeletingClient(client)}
+                            className="p-2 rounded-xl text-gray-500 hover:text-danger-600 hover:bg-danger-50 transition-colors"
+                            title="Delete Client"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -478,7 +578,7 @@ export default function ClientsPage() {
               <select
                 value={formData.status}
                 onChange={(e: any) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-white text-sm focus:ring-2 focus:ring-accent-500 outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-white text-base sm:text-sm min-h-[44px] sm:min-h-[38px] focus:ring-2 focus:ring-accent-500 outline-none"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -493,15 +593,25 @@ export default function ClientsPage() {
               placeholder="Add internal notes about this client..."
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-white text-sm focus:ring-2 focus:ring-accent-500 outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-white text-base sm:text-sm focus:ring-2 focus:ring-accent-500 outline-none"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setIsAddModalOpen(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" loading={isSubmitting}>
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full sm:w-auto"
+              loading={isSubmitting}
+            >
               {editingClient ? 'Update Client' : 'Create Client'}
             </Button>
           </div>

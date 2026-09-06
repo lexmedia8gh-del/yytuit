@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerAppUrl } from '@/lib/utils'
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     const amountInSubunits = Math.round(amount * 100)
     const reference = `LXM_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
     
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appUrl = getServerAppUrl(req) || new URL(req.url).origin
     const callbackUrl = `${appUrl}/pay/${token}?reference=${reference}`
 
     const response = await fetch('https://api.paystack.co/transaction/initialize', {

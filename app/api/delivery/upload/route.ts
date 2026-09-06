@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminDb, requireAdmin } from '@/lib/firebase/admin'
+import { getAdminDb, getAdminBucket, requireAdmin } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
 import { FieldValue } from 'firebase-admin/firestore'
 import { sendDeliveryPaymentRequiredEmail } from '@/lib/services/brevo'
+import { getServerAppUrl } from '@/lib/utils'
 import fs from 'fs'
 import path from 'path'
 
@@ -32,18 +33,51 @@ export async function POST(req: NextRequest) {
 
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9._\- ]/g, '_').trim() || 'file'
     const id = fileDocId || Math.random().toString(36).substring(2, 15)
+    const storagePath = `deliveries/${projectId}/${deliveryId}/${id}/${sanitizedName}`
 
-    // Save to local public storage directory: public/uploads/deliveries/{projectId}/{deliveryId}/{id}/{sanitizedName}
-    const relativeStorageDir = path.join('uploads', 'deliveries', projectId, deliveryId, id)
-    const absoluteTargetDir = path.join(process.cwd(), 'public', relativeStorageDir)
+    // 1. Primary: Upload directly to Firebase Storage bucket
+    let uploadedToCloud = false
+    let cloudError: string | null = null
+    try {
+      const bucket = getAdminBucket()
+      const storageFile = bucket.file(storagePath)
+      await storageFile.save(buffer, {
+        metadata: {
+          contentType: file.type || 'application/octet-stream',
+          metadata: {
+            deliveryId,
+            projectId,
+            clientId,
+            originalName: file.name,
+            fileDocId: id,
+          },
+        },
+      })
+      uploadedToCloud = true
+    } catch (err: any) {
+      console.warn('[Storage] Firebase Storage upload error:', err?.message)
+      cloudError = err?.message || 'Storage error'
+    }
 
-    await fs.promises.mkdir(absoluteTargetDir, { recursive: true })
-    const absoluteFilePath = path.join(absoluteTargetDir, sanitizedName)
-    await fs.promises.writeFile(absoluteFilePath, buffer)
+    // 2. Secondary: Local disk cache (if writable, e.g. local development)
+    try {
+      const relativeStorageDir = path.join('uploads', 'deliveries', projectId, deliveryId, id)
+      const absoluteTargetDir = path.join(process.cwd(), 'public', relativeStorageDir)
+      await fs.promises.mkdir(absoluteTargetDir, { recursive: true })
+      const absoluteFilePath = path.join(absoluteTargetDir, sanitizedName)
+      await fs.promises.writeFile(absoluteFilePath, buffer)
+    } catch (diskErr) {
+      // In serverless environments (e.g. Vercel, Cloud Run), local disk is read-only.
+      // If upload to Firebase Storage succeeded, this disk failure is expected and safe.
+      if (!uploadedToCloud) {
+        throw new Error(
+          `Unable to save file to cloud storage (${cloudError}) or local disk.`
+        )
+      }
+    }
 
     // Web-accessible download URL via streaming endpoint
     const downloadUrl = `/api/files?id=${id}`
-    const storagePath = `deliveries/${projectId}/${deliveryId}/${id}/${sanitizedName}`
 
     // Save metadata to Firestore using Admin SDK
     const adminDb = getAdminDb()
@@ -123,8 +157,8 @@ export async function POST(req: NextRequest) {
         }
 
         if (clientEmail) {
-          const origin = new URL(req.url).origin
-          const paymentUrl = `${origin}/delivery/${encodeURIComponent(deliveryData.accessToken || deliveryId)}`
+          const baseUrl = getServerAppUrl(req) || new URL(req.url).origin
+          const paymentUrl = `${baseUrl}/delivery/${encodeURIComponent(deliveryData.accessToken || deliveryId)}`
 
           const emailRes = await sendDeliveryPaymentRequiredEmail({
             toEmail: clientEmail,

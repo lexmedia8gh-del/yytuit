@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminDb, getAdminStorage } from '@/lib/firebase/admin'
+import { getAdminDb, getAdminBucket } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import nodePath from 'path'
@@ -25,8 +25,6 @@ export async function POST(req: NextRequest) {
 
   const now = Timestamp.now()
   const adminDb = getAdminDb()
-  let adminStorage: any
-  try { adminStorage = getAdminStorage() } catch { /* no bucket configured */ }
 
   const results = {
     scanned: 0,
@@ -64,7 +62,7 @@ export async function POST(req: NextRequest) {
           const storagePath = fileData?.storagePath
 
           if (storagePath) {
-            // 1. Delete from local disk
+            // 1. Delete from local disk (if present)
             try {
               const localPath = nodePath.join(process.cwd(), 'public', 'uploads', storagePath)
               if (nodeFs.existsSync(localPath)) {
@@ -75,13 +73,12 @@ export async function POST(req: NextRequest) {
             }
 
             // 2. Delete from Firebase Storage
-            if (adminStorage) {
-              try {
-                await adminStorage.bucket().file(storagePath).delete()
-              } catch (e: any) {
-                if (e.code !== 404) {
-                  console.warn(`[Cleanup] Storage delete failed for ${storagePath}:`, e.message)
-                }
+            try {
+              const bucket = getAdminBucket()
+              await bucket.file(storagePath).delete()
+            } catch (e: any) {
+              if (e.code !== 404) {
+                console.warn(`[Cleanup] Storage delete failed for ${storagePath}:`, e.message)
               }
             }
           }

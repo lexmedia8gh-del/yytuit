@@ -1,7 +1,7 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
-import { getAdminDb, getAdminStorage } from '@/lib/firebase/admin'
+import { NextRequest, NextResponse } from 'next/server'
+import { getAdminDb, getAdminBucket } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
-import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { FieldValue } from 'firebase-admin/firestore'
 import fs from 'fs'
 import path from 'path'
 
@@ -15,12 +15,6 @@ export async function POST(req: NextRequest) {
     }
 
     const adminDb = getAdminDb()
-    let adminStorage;
-    try {
-      adminStorage = getAdminStorage()
-    } catch {
-      // Firebase Storage might not be configured
-    }
 
     // Validate delivery by token
     const deliveriesSnap = await adminDb
@@ -51,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const storagePath = fileData?.storagePath
 
-    // 1. Delete from local server disk (if uploaded via server API fallback)
+    // 1. Delete from local server disk (if exists)
     if (storagePath) {
       try {
         const localFilePath = path.join(process.cwd(), 'public', 'uploads', storagePath)
@@ -62,15 +56,13 @@ export async function POST(req: NextRequest) {
         console.warn('Failed to delete local file copy:', err)
       }
       
-      // 2. Delete from Firebase Storage bucket (if uploaded via client SDK)
-      if (adminStorage) {
-        try {
-          const bucket = adminStorage.bucket()
-          await bucket.file(storagePath).delete()
-        } catch (err: any) {
-          if (err.code !== 404) {
-            console.warn('Failed to delete Firebase Storage file:', err.message)
-          }
+      // 2. Delete from Firebase Storage bucket
+      try {
+        const bucket = getAdminBucket()
+        await bucket.file(storagePath).delete()
+      } catch (err: any) {
+        if (err.code !== 404) {
+          console.warn('Failed to delete Firebase Storage file:', err.message)
         }
       }
     }
