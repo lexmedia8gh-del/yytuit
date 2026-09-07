@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { AuthProvider } from '@/lib/contexts/AuthContext'
+import { ThemeProvider } from '@/lib/contexts/ThemeContext'
 import { Toaster } from 'react-hot-toast'
 import '@/app/globals.css'
 
@@ -21,29 +22,47 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="font-sans antialiased">
-        <AuthProvider>
-          {children}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                borderRadius: '12px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                fontSize: '14px',
-                fontFamily: 'var(--font-inter)',
-              },
-              success: {
-                iconTheme: { primary: '#22C55E', secondary: '#fff' },
-              },
-              error: {
-                iconTheme: { primary: '#EF4444', secondary: '#fff' },
-              },
-            }}
-          />
-        </AuthProvider>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('theme');
+                if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
+      <body className="font-sans antialiased transition-colors duration-200">
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  fontSize: '14px',
+                  fontFamily: 'var(--font-inter)',
+                },
+                success: {
+                  iconTheme: { primary: '#22C55E', secondary: '#fff' },
+                },
+                error: {
+                  iconTheme: { primary: '#EF4444', secondary: '#fff' },
+                },
+              }}
+            />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

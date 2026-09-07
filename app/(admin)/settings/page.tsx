@@ -16,19 +16,22 @@ import {
   CheckCircle2,
   AlertCircle,
   AlertTriangle,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea, Select } from '@/components/ui/Input'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useTheme } from '@/lib/contexts/ThemeContext'
 import { getDocument, setDocument, COLLECTIONS } from '@/lib/firebase/firestore'
 import { changePassword } from '@/lib/firebase/auth'
 import type { BusinessSettings, BrandingSettings } from '@/lib/types'
 import { ResetAppDataSection } from '@/components/settings/ResetAppDataSection'
 import toast from 'react-hot-toast'
 
-type SettingsTab = 'business' | 'invoice' | 'payment' | 'messages' | 'sms' | 'branding' | 'account' | 'danger'
+type SettingsTab = 'business' | 'invoice' | 'payment' | 'messages' | 'sms' | 'branding' | 'appearance' | 'account' | 'danger'
 
 const tabs: { id: SettingsTab; label: string; icon: React.ElementType; isDanger?: boolean }[] = [
   { id: 'business', label: 'Business Info', icon: Building2 },
@@ -37,6 +40,7 @@ const tabs: { id: SettingsTab; label: string; icon: React.ElementType; isDanger?
   { id: 'messages', label: 'Messages & Terms', icon: MessageSquare },
   { id: 'sms', label: 'SMS & Textbelt', icon: MessageSquare },
   { id: 'branding', label: 'Branding', icon: Palette },
+  { id: 'appearance', label: 'Appearance', icon: Sun },
   { id: 'account', label: 'My Account', icon: User },
   { id: 'danger', label: 'Reset App Data', icon: AlertTriangle, isDanger: true },
 ]
@@ -300,6 +304,7 @@ function LogoUploader({
 
 export default function SettingsPage() {
   const { user, lexUser } = useAuth()
+  const { theme, setTheme, toggleTheme } = useTheme()
   const [activeTab, setActiveTab] = useState<SettingsTab>('business')
   const [settings, setSettings] = useState<Partial<BusinessSettings>>(DEFAULT_SETTINGS)
   const [branding, setBranding] = useState<BrandingSettings>(DEFAULT_BRANDING)
@@ -615,6 +620,94 @@ export default function SettingsPage() {
                     </div>
                   </Card>
                 </div>
+              )}
+
+              {activeTab === 'appearance' && (
+                <Card>
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900 mb-1">Appearance</h3>
+                      <p className="text-sm text-muted">Customize the visual theme and appearance of Ctrl Room.</p>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-5 space-y-6">
+                      <div>
+                        <span className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Display</span>
+                        <h4 className="text-sm font-bold text-gray-900 mb-2">Theme</h4>
+                        <p className="text-sm text-muted mb-4">Choose between Light Mode and Dark Mode for the Ctrl Room interface.</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setTheme('light')}
+                          className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                            theme === 'light'
+                              ? 'border-indigo-600 bg-indigo-50/50 text-indigo-950 shadow-xs'
+                              : 'border-gray-200 bg-white hover:border-gray-300 text-gray-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 ${theme === 'light' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                              <Sun size={20} className="transition-transform hover:rotate-90" />
+                            </div>
+                            <div className="text-left">
+                              <p className="font-semibold text-sm">☀️ Light Mode</p>
+                              <p className="text-xs text-muted">Clean professional daytime theme</p>
+                            </div>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${theme === 'light' ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300'}`}>
+                            {theme === 'light' && <div className="w-2 h-2 rounded-full bg-white" />}
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setTheme('dark')}
+                          className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                            theme === 'dark'
+                              ? 'border-indigo-600 bg-slate-900 text-white shadow-xs'
+                              : 'border-gray-200 bg-white hover:border-gray-300 text-gray-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 ${theme === 'dark' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                              <Moon size={20} className="transition-transform hover:-rotate-12" />
+                            </div>
+                            <div className="text-left">
+                              <p className="font-semibold text-sm">🌙 Dark Mode</p>
+                              <p className="text-xs text-muted">Sleek dark interface for low-light environments</p>
+                            </div>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${theme === 'dark' ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300'}`}>
+                            {theme === 'dark' && <div className="w-2 h-2 rounded-full bg-white" />}
+                          </div>
+                        </button>
+                      </div>
+
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+                            {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">Active Theme Status</p>
+                            <p className="text-xs text-muted">Currently active: <span className="font-bold text-indigo-600 capitalize">{theme === 'dark' ? '🌙 Dark Mode' : '☀️ Light Mode'}</span></p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={toggleTheme}
+                          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+                        >
+                          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+                          Toggle to {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               )}
 
               {activeTab === 'account' && (

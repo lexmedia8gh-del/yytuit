@@ -8,9 +8,12 @@ import {
   Settings,
   User,
   ChevronDown,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useTheme } from '@/lib/contexts/ThemeContext'
 import { signOut } from '@/lib/firebase/auth'
 import { Avatar } from '@/components/ui/Avatar'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
@@ -22,6 +25,7 @@ interface TopBarProps {
 
 export function TopBar({ onMenuClick }: TopBarProps) {
   const { lexUser } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const router = useRouter()
   const pathname = usePathname()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -93,6 +97,19 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
       {/* Right: Actions & User Menu */}
       <div className="flex items-center gap-3">
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 transition-colors shadow-xs flex items-center justify-center"
+          aria-label="Toggle theme"
+          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+        >
+          {theme === 'dark' ? (
+            <Sun size={16} className="text-amber-400 transition-transform duration-300 hover:rotate-90" />
+          ) : (
+            <Moon size={16} className="text-indigo-600 transition-transform duration-300 hover:-rotate-12" />
+          )}
+        </button>
+
         <NotificationBell />
 
         {lexUser && (
