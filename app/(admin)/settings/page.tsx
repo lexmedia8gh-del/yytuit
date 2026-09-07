@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -24,17 +25,19 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { getDocument, setDocument, COLLECTIONS } from '@/lib/firebase/firestore'
 import { changePassword } from '@/lib/firebase/auth'
 import type { BusinessSettings, BrandingSettings } from '@/lib/types'
+import { ResetAppDataSection } from '@/components/settings/ResetAppDataSection'
 import toast from 'react-hot-toast'
 
-type SettingsTab = 'business' | 'invoice' | 'payment' | 'messages' | 'account' | 'branding'
+type SettingsTab = 'business' | 'invoice' | 'payment' | 'messages' | 'branding' | 'account' | 'danger'
 
-const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
+const tabs: { id: SettingsTab; label: string; icon: React.ElementType; isDanger?: boolean }[] = [
   { id: 'business', label: 'Business Info', icon: Building2 },
   { id: 'invoice', label: 'Invoice Settings', icon: FileText },
   { id: 'payment', label: 'Payment', icon: CreditCard },
   { id: 'messages', label: 'Messages & Terms', icon: MessageSquare },
   { id: 'branding', label: 'Branding', icon: Palette },
   { id: 'account', label: 'My Account', icon: User },
+  { id: 'danger', label: 'Reset App Data', icon: AlertTriangle, isDanger: true },
 ]
 
 const DEFAULT_SETTINGS: Partial<BusinessSettings> = {
@@ -366,7 +369,7 @@ export default function SettingsPage() {
             icon={<Save size={16} />}
             onClick={activeTab === 'branding' ? handleSaveBranding : handleSave}
             loading={saving}
-            disabled={activeTab === 'account'}
+            disabled={activeTab === 'account' || activeTab === 'danger'}
           >
             Save Changes
           </Button>
@@ -385,10 +388,25 @@ export default function SettingsPage() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
-                      isActive ? 'bg-accent-50 text-accent-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      tab.isDanger
+                        ? isActive
+                          ? 'bg-rose-50 text-rose-700 font-bold border border-rose-200 shadow-xs'
+                          : 'text-rose-600 hover:bg-rose-50/70 hover:text-rose-700'
+                        : isActive
+                        ? 'bg-accent-50 text-accent-700 font-semibold'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
-                    <Icon size={16} className={isActive ? 'text-accent-600' : 'text-gray-400'} />
+                    <Icon
+                      size={16}
+                      className={
+                        tab.isDanger
+                          ? 'text-rose-600'
+                          : isActive
+                          ? 'text-accent-600'
+                          : 'text-gray-400'
+                      }
+                    />
                     {tab.label}
                   </button>
                 )
@@ -539,7 +557,7 @@ export default function SettingsPage() {
               )}
 
               {activeTab === 'account' && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <Card>
                     <h3 className="text-base font-semibold text-gray-900 mb-6">My Profile</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -558,8 +576,33 @@ export default function SettingsPage() {
                       <Button variant="primary" onClick={handlePasswordChange} loading={passwordLoading} disabled={!currentPassword || !newPassword || !confirmPassword}>Update Password</Button>
                     </div>
                   </Card>
+
+                  {/* Danger Zone Direct Callout */}
+                  <Card className="border-rose-200 bg-rose-50/40">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-bold text-rose-900 flex items-center gap-1.5">
+                          <AlertTriangle size={15} className="text-rose-600 shrink-0" />
+                          Danger Zone: Reset App Data
+                        </h4>
+                        <p className="text-xs text-rose-700 leading-relaxed">
+                          Preparing for live launch? Permanently purge test clients, jobs, invoices, and uploaded files.
+                        </p>
+                      </div>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setActiveTab('danger')}
+                        className="self-start sm:self-center shrink-0 bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                      >
+                        Go to Danger Zone →
+                      </Button>
+                    </div>
+                  </Card>
                 </div>
               )}
+
+              {activeTab === 'danger' && <ResetAppDataSection />}
             </>
           )}
         </div>

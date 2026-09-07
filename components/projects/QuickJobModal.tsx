@@ -97,6 +97,8 @@ export function QuickJobModal({ isOpen, onClose, onSuccess }: QuickJobModalProps
   const [jobDescription, setJobDescription] = useState('')
   const [totalAmount, setTotalAmount] = useState<string>('')
   const [amountPaid, setAmountPaid] = useState<string>('0')
+  const [depositType, setDepositType] = useState<'fixed' | 'percentage'>('fixed')
+  const [depositPercent, setDepositPercent] = useState<number>(50)
   const [jobDate, setJobDate] = useState<string>(new Date().toISOString().split('T')[0])
   const [dueDate, setDueDate] = useState<string>('')
   const [notes, setNotes] = useState('')
@@ -671,38 +673,73 @@ export function QuickJobModal({ isOpen, onClose, onSuccess }: QuickJobModalProps
               </div>
 
               {/* 3. Pricing & Financials */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50/80 p-4 rounded-xl border border-slate-200/80">
-                <div>
-                  <label className="text-xs font-bold text-slate-800 block mb-1">
-                    Total Amount (GHS) *
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={totalAmount}
-                    onChange={(e) => setTotalAmount(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-800 block mb-1">
-                    Amount Paid / Deposit (GHS)
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={amountPaid}
-                    onChange={(e) => setAmountPaid(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 block mb-1">
-                    Calculated Balance
-                  </label>
-                  <div className="h-10 px-3 bg-white border border-slate-300 rounded-xl flex items-center font-bold text-xs text-rose-600">
-                    {formatCurrency(calculatedBalance)}
+              <div className="space-y-2 bg-slate-50/80 p-4 rounded-xl border border-slate-200/80">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 block mb-1">
+                      Total Amount (GHS) *
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={totalAmount}
+                      onChange={(e) => {
+                        const newTotal = e.target.value
+                        setTotalAmount(newTotal)
+                        if (depositType === 'percentage' && newTotal) {
+                          const tot = parseFloat(newTotal) || 0
+                          setAmountPaid(Math.round((tot * depositPercent) / 100).toString())
+                        }
+                      }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-800 block">
+                        Deposit / Paid (GHS)
+                      </label>
+                      <div className="flex items-center gap-1 text-[10px]">
+                        {[40, 50, 100].map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => {
+                              setDepositType('percentage')
+                              setDepositPercent(pct)
+                              const tot = parseFloat(totalAmount) || 0
+                              setAmountPaid(Math.round((tot * pct) / 100).toString())
+                            }}
+                            className={`px-1.5 py-0.2 rounded font-semibold transition-colors ${
+                              depositType === 'percentage' && depositPercent === pct
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                            }`}
+                          >
+                            {pct}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={amountPaid}
+                      onChange={(e) => {
+                        setDepositType('fixed')
+                        setAmountPaid(e.target.value)
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-1">
+                      Calculated Balance
+                    </label>
+                    <div className="h-10 px-3 bg-white border border-slate-300 rounded-xl flex items-center font-bold text-xs text-rose-600">
+                      {formatCurrency(calculatedBalance)}
+                    </div>
                   </div>
                 </div>
               </div>

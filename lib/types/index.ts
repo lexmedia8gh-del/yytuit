@@ -59,6 +59,7 @@ export type ServiceCategory =
   | 'Other'
 
 export type ServicePricingType = 'fixed' | 'starting_from' | 'custom'
+export type DepositType = 'fixed' | 'percentage'
 
 export interface Service {
   id: string
@@ -68,6 +69,9 @@ export interface Service {
   defaultPrice: number
   pricingType: ServicePricingType
   currency: string
+  depositType?: DepositType
+  depositValue?: number
+  requiredDeposit?: number
   status: 'active' | 'inactive' | 'archived'
   createdAt: Timestamp
   updatedAt: Timestamp
@@ -104,7 +108,10 @@ export interface Project {
   invoiceNumber?: string // denormalized
   description?: string
   price: number
+  depositType?: DepositType
+  depositValue?: number
   depositAmount?: number // required deposit / first payment
+  isCustomDepositOverride?: boolean
   amountPaid?: number // total paid so far
   outstandingBalance?: number // price - amountPaid
   currency: string
@@ -140,6 +147,9 @@ export interface Package {
   includedServices?: string[]
   price: number
   discount?: number
+  depositType?: DepositType
+  depositValue?: number
+  requiredDeposit?: number
   currency: string
   whatsIncluded: PackageItem[]
   deliveryTimeline?: string

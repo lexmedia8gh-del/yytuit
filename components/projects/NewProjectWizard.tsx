@@ -31,7 +31,7 @@ import {
   collection,
   serverTimestamp,
 } from '@/lib/firebase/firestore'
-import type { Client, Service, Package, Invoice, ClientLink, BusinessSettings } from '@/lib/types'
+import type { Client, Service, Package, Invoice, ClientLink, BusinessSettings, DepositType } from '@/lib/types'
 import {
   formatCurrency,
   generateLxmInvoiceNumber,
@@ -40,6 +40,7 @@ import {
   copyToClipboard,
   getClientAppUrl,
   formatWhatsAppNumber,
+  calculateDepositAmount,
 } from '@/lib/utils'
 import { where, orderBy } from '@/lib/firebase/firestore'
 import toast from 'react-hot-toast'
@@ -139,6 +140,12 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   )
 
+  // Deposit config (editable override in confirm step)
+  const [depositType, setDepositType] = useState<DepositType>('percentage')
+  const [depositValue, setDepositValue] = useState<number>(40)
+  const [customDepositAmount, setCustomDepositAmount] = useState<number>(0)
+  const [isCustomOverride, setIsCustomOverride] = useState(false)
+
   // Submission
   const [submitting, setSubmitting] = useState(false)
   const [sendingWA, setSendingWA] = useState(false)
@@ -179,10 +186,17 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
       .catch(() => setLoadingPackages(false))
   }, [selectedService])
 
-  // Auto-fill project name when package selected
+  // Auto-fill project name and deposit settings when package selected
   useEffect(() => {
     if (selectedService && selectedPackage) {
       setProjectName(`${client.fullName} — ${selectedPackage.title}`)
+      const dType = selectedPackage.depositType || 'percentage'
+      const dVal = selectedPackage.depositValue !== undefined ? selectedPackage.depositValue : 40
+      const calc = selectedPackage.requiredDeposit ?? calculateDepositAmount(selectedPackage.price, dType, dVal)
+      setDepositType(dType)
+      setDepositValue(dVal)
+      setCustomDepositAmount(calc)
+      setIsCustomOverride(false)
     }
   }, [selectedService, selectedPackage, client.fullName])
 
@@ -211,10 +225,9 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
       const invoiceNumber = generateInvoiceNumber(invoicePrefix, invoiceStartNum + existingInvoices.length)
 
       const totalAmount = selectedPackage.price
-      const depositAmount =
-        selectedPackage.discount && selectedPackage.discount > 0 && selectedPackage.discount < totalAmount
-          ? selectedPackage.discount // treat discount field as deposit amount if set
-          : Math.round(totalAmount * 0.4) // default 40% deposit
+      const depositAmountToUse = isCustomOverride
+        ? customDepositAmount
+        : calculateDepositAmount(totalAmount, depositType, depositValue)
       const outstandingBalance = totalAmount
 
       // 2. Prepare refs
@@ -237,7 +250,10 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
         invoiceId: invoiceRef.id,
         invoiceNumber,
         price: totalAmount,
-        depositAmount,
+        depositType,
+        depositValue,
+        depositAmount: depositAmountToUse,
+        isCustomDepositOverride: isCustomOverride,
         amountPaid: 0,
         outstandingBalance,
         currency: selectedPackage.currency || 'GHS',
@@ -279,7 +295,10 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
         total: totalAmount,
         amountPaid: 0,
         balanceDue: totalAmount,
-        depositAmount,
+        depositType,
+        depositValue,
+        depositAmount: depositAmountToUse,
+        isCustomDepositOverride: isCustomOverride,
         currency: selectedPackage.currency || 'GHS',
         status: 'Pending',
         invoiceDate: serverTimestamp(),
@@ -320,7 +339,7 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
           packageTitle: selectedPackage.title,
           invoiceId: invoiceRef.id,
           invoiceNumber,
-          amount: depositAmount,
+          amount: depositAmountToUse,
           currency: selectedPackage.currency || 'GHS',
           status: 'Pending Payment',
           paymentStatus: 'Unpaid',
@@ -341,7 +360,7 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
         service: selectedService,
         pkg: selectedPackage,
         totalAmount,
-        depositAmount,
+        depositAmount: depositAmountToUse,
         outstandingBalance,
       })
 
@@ -362,6 +381,10 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
     projectNotes,
     startDate,
     dueDate,
+    depositType,
+    depositValue,
+    customDepositAmount,
+    isCustomOverride,
     onSuccess,
   ])
 
@@ -382,10 +405,9 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
       const invoiceNumber = generateInvoiceNumber(invoicePrefix, invoiceStartNum + existingInvoices.length)
 
       const totalAmount = selectedPackage.price
-      const depositAmount =
-        selectedPackage.discount && selectedPackage.discount > 0 && selectedPackage.discount < totalAmount
-          ? selectedPackage.discount
-          : Math.round(totalAmount * 0.4)
+      const depositAmountToUse = isCustomOverride
+        ? customDepositAmount
+        : calculateDepositAmount(totalAmount, depositType, depositValue)
       const outstandingBalance = totalAmount
 
       const projectRef = doc(collection(db, COLLECTIONS.PROJECTS))
@@ -405,7 +427,10 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
         invoiceId: invoiceRef.id,
         invoiceNumber,
         price: totalAmount,
-        depositAmount,
+        depositType,
+        depositValue,
+        depositAmount: depositAmountToUse,
+        isCustomDepositOverride: isCustomOverride,
         amountPaid: 0,
         outstandingBalance,
         currency: selectedPackage.currency || 'GHS',
@@ -446,7 +471,10 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
         total: totalAmount,
         amountPaid: 0,
         balanceDue: totalAmount,
-        depositAmount,
+        depositType,
+        depositValue,
+        depositAmount: depositAmountToUse,
+        isCustomDepositOverride: isCustomOverride,
         currency: selectedPackage.currency || 'GHS',
         status: 'Payment Link Ready',
         invoiceDate: serverTimestamp(),
@@ -483,7 +511,7 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
           packageTitle: selectedPackage.title,
           invoiceId: invoiceRef.id,
           invoiceNumber,
-          amount: depositAmount,
+          amount: depositAmountToUse,
           currency: selectedPackage.currency || 'GHS',
           status: 'Payment Link Ready',
           paymentStatus: 'Unpaid',
@@ -503,12 +531,12 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
         service: selectedService,
         pkg: selectedPackage,
         totalAmount,
-        depositAmount,
+        depositAmount: depositAmountToUse,
         outstandingBalance,
       })
 
       const formattedPhone = formatWhatsAppNumber(phoneToUse)
-      const message = `Hello ${client.fullName}! 👋\n\nYour invoice *${invoiceNumber}* for *${selectedService.name}* (${selectedPackage.title}) is ready.\n\n📋 Service: ${selectedService.name}\n📦 Package: ${selectedPackage.title}\n💰 Total Amount: ${formatCurrency(totalAmount)}\n💳 Deposit Due: ${formatCurrency(depositAmount)}\n🔗 Secure Payment Link:\n${paymentUrl}\n\nThank you for choosing Lexmedia! 🙏`
+      const message = `Hello ${client.fullName}! 👋\n\nYour invoice *${invoiceNumber}* for *${selectedService.name}* (${selectedPackage.title}) is ready.\n\n📋 Service: ${selectedService.name}\n📦 Package: ${selectedPackage.title}\n💰 Total Amount: ${formatCurrency(totalAmount)}\n💳 Deposit Due: ${formatCurrency(depositAmountToUse)}\n🔗 Secure Payment Link:\n${paymentUrl}\n\nThank you for choosing Lexmedia! 🙏`
 
       const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
       window.open(waUrl, '_blank')
@@ -530,6 +558,10 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
     projectNotes,
     startDate,
     dueDate,
+    depositType,
+    depositValue,
+    customDepositAmount,
+    isCustomOverride,
     onSuccess,
   ])
 
@@ -786,30 +818,118 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
 
                 <div className="border-t border-border pt-4 grid grid-cols-3 gap-3 text-center">
                   <div className="p-3 rounded-xl bg-white border border-border">
-                    <p className="text-xs text-muted">Total</p>
+                    <p className="text-xs text-muted">Total Price</p>
                     <p className="font-bold text-gray-900 text-lg">{formatCurrency(selectedPackage.price)}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-accent-50 border border-accent-200">
-                    <p className="text-xs text-accent-700">Deposit</p>
+                    <div className="flex items-center justify-center gap-1">
+                      <p className="text-xs text-accent-700 font-medium">Required Deposit</p>
+                      {isCustomOverride && (
+                        <span className="text-[9px] px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-bold">Custom</span>
+                      )}
+                    </div>
                     <p className="font-bold text-accent-800 text-lg">
                       {formatCurrency(
-                        selectedPackage.discount && selectedPackage.discount > 0 && selectedPackage.discount < selectedPackage.price
-                          ? selectedPackage.discount
-                          : Math.round(selectedPackage.price * 0.4)
+                        isCustomOverride
+                          ? customDepositAmount
+                          : calculateDepositAmount(selectedPackage.price, depositType, depositValue)
                       )}
                     </p>
                   </div>
                   <div className="p-3 rounded-xl bg-orange-50 border border-orange-200">
-                    <p className="text-xs text-orange-700">Balance</p>
+                    <p className="text-xs text-orange-700">Balance Due</p>
                     <p className="font-bold text-orange-800 text-lg">
                       {formatCurrency(
-                        selectedPackage.price - (
-                          selectedPackage.discount && selectedPackage.discount > 0 && selectedPackage.discount < selectedPackage.price
-                            ? selectedPackage.discount
-                            : Math.round(selectedPackage.price * 0.4)
-                        )
+                        selectedPackage.price -
+                          (isCustomOverride
+                            ? customDepositAmount
+                            : calculateDepositAmount(selectedPackage.price, depositType, depositValue))
                       )}
                     </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Deposit Custom Override Section */}
+              <div className="p-3.5 rounded-xl bg-indigo-50/50 border border-indigo-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                    <span>Deposit Requirement</span>
+                    <span className="text-[11px] font-normal text-indigo-600">(Package default or override for client)</span>
+                  </label>
+                  {isCustomOverride && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const dType = selectedPackage.depositType || 'percentage'
+                        const dVal = selectedPackage.depositValue !== undefined ? selectedPackage.depositValue : 40
+                        const calc = selectedPackage.requiredDeposit ?? calculateDepositAmount(selectedPackage.price, dType, dVal)
+                        setDepositType(dType)
+                        setDepositValue(dVal)
+                        setCustomDepositAmount(calc)
+                        setIsCustomOverride(false)
+                      }}
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 underline"
+                    >
+                      Reset to package default
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-700 block mb-1">Deposit Type</label>
+                    <div className="grid grid-cols-2 gap-1 bg-white p-1 rounded-lg border border-gray-200 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDepositType('percentage')
+                          setIsCustomOverride(true)
+                          setCustomDepositAmount(calculateDepositAmount(selectedPackage.price, 'percentage', depositValue))
+                        }}
+                        className={`py-1 rounded font-medium transition-colors ${
+                          depositType === 'percentage'
+                            ? 'bg-indigo-600 text-white font-semibold'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        Percentage (%)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDepositType('fixed')
+                          setIsCustomOverride(true)
+                          setCustomDepositAmount(calculateDepositAmount(selectedPackage.price, 'fixed', depositValue))
+                        }}
+                        className={`py-1 rounded font-medium transition-colors ${
+                          depositType === 'fixed'
+                            ? 'bg-indigo-600 text-white font-semibold'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        Fixed Amount
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-700 block mb-1">
+                      {depositType === 'percentage' ? 'Deposit Percentage (%)' : 'Deposit Amount (GHS)'}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={depositType === 'percentage' ? 100 : selectedPackage.price}
+                      value={depositValue}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0
+                        setDepositValue(val)
+                        setIsCustomOverride(true)
+                        setCustomDepositAmount(calculateDepositAmount(selectedPackage.price, depositType, val))
+                      }}
+                      className="w-full h-8 px-3 rounded-lg border border-gray-300 bg-white text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 outline-none"
+                    />
                   </div>
                 </div>
               </div>

@@ -31,8 +31,8 @@ import {
   updateDocument,
   subscribeToCollection,
 } from '@/lib/firebase/firestore'
-import type { Package, Service, PackageItem } from '@/lib/types'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import type { Package, Service, PackageItem, DepositType } from '@/lib/types'
+import { formatCurrency, formatDate, calculateDepositAmount } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 export default function PackagesPage() {
@@ -54,6 +54,8 @@ export default function PackagesPage() {
     description: '',
     price: 0,
     discount: 0,
+    depositType: 'percentage' as DepositType,
+    depositValue: 40,
     currency: 'GHS',
     status: 'active' as 'active' | 'inactive',
     includedServices: [] as string[],
@@ -91,6 +93,8 @@ export default function PackagesPage() {
       description: '',
       price: 0,
       discount: 0,
+      depositType: 'percentage',
+      depositValue: 40,
       currency: 'GHS',
       status: 'active',
       includedServices: [],
@@ -112,6 +116,8 @@ export default function PackagesPage() {
       description: pkg.description || '',
       price: pkg.price || 0,
       discount: pkg.discount || 0,
+      depositType: pkg.depositType || 'percentage',
+      depositValue: pkg.depositValue !== undefined ? pkg.depositValue : 40,
       currency: pkg.currency || 'GHS',
       status: pkg.status === 'inactive' ? 'inactive' : 'active',
       includedServices: pkg.includedServices || [],
@@ -163,14 +169,20 @@ export default function PackagesPage() {
       text,
     }))
 
+    const packagePrice = Number(formData.price) || 0
+    const calcDeposit = calculateDepositAmount(packagePrice, formData.depositType, formData.depositValue)
+
     setIsSubmitting(true)
     try {
       if (editingPackage) {
         await updateDocument(COLLECTIONS.PACKAGES, editingPackage.id, {
           title: formData.title,
           description: formData.description,
-          price: Number(formData.price) || 0,
+          price: packagePrice,
           discount: Number(formData.discount) || 0,
+          depositType: formData.depositType,
+          depositValue: Number(formData.depositValue) || 0,
+          requiredDeposit: calcDeposit,
           currency: formData.currency,
           status: formData.status,
           includedServices: formData.includedServices,
@@ -181,8 +193,11 @@ export default function PackagesPage() {
         await addDocument(COLLECTIONS.PACKAGES, {
           title: formData.title,
           description: formData.description,
-          price: Number(formData.price) || 0,
+          price: packagePrice,
           discount: Number(formData.discount) || 0,
+          depositType: formData.depositType,
+          depositValue: Number(formData.depositValue) || 0,
+          requiredDeposit: calcDeposit,
           currency: formData.currency,
           status: 'active',
           includedServices: formData.includedServices,
@@ -353,6 +368,24 @@ export default function PackagesPage() {
                     </div>
                   )}
 
+                  {/* Deposit Info */}
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between text-xs">
+                    <span className="text-gray-500 font-medium">Required Deposit:</span>
+                    <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                      {formatCurrency(
+                        pkg.requiredDeposit ??
+                          calculateDepositAmount(
+                            pkg.price,
+                            pkg.depositType || 'percentage',
+                            pkg.depositValue !== undefined ? pkg.depositValue : 40
+                          )
+                      )}
+                      {pkg.depositType === 'percentage' || !pkg.depositType
+                        ? ` (${pkg.depositValue !== undefined ? pkg.depositValue : 40}%)`
+                        : ' (Fixed)'}
+                    </span>
+                  </div>
+
                   {/* Features List */}
                   {pkg.whatsIncluded && pkg.whatsIncluded.length > 0 && (
                     <div className="space-y-2 pt-2 border-t border-border/60">
@@ -447,6 +480,69 @@ export default function PackagesPage() {
               value={formData.discount}
               onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
             />
+          </div>
+
+          {/* Required Package Deposit Settings */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <DollarSign size={14} className="text-indigo-600" />
+                Required Package Deposit
+              </label>
+              <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                Auto Updates
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Deposit Type</label>
+                <div className="flex rounded-xl border border-gray-200 p-1 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, depositType: 'percentage' })}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                      formData.depositType === 'percentage'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Percentage (%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, depositType: 'fixed' })}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                      formData.depositType === 'fixed'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Fixed Amount (GH₵)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <Input
+                  label={formData.depositType === 'percentage' ? 'Deposit Percentage (%)' : 'Deposit Amount (GH₵)'}
+                  type="number"
+                  min="0"
+                  max={formData.depositType === 'percentage' ? '100' : undefined}
+                  step={formData.depositType === 'percentage' ? '1' : '0.01'}
+                  placeholder={formData.depositType === 'percentage' ? '40' : '2000.00'}
+                  value={formData.depositValue}
+                  onChange={(e) => setFormData({ ...formData, depositValue: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-white border border-indigo-100 flex items-center justify-between text-xs">
+              <span className="text-gray-600 font-medium">Calculated Required Deposit:</span>
+              <span className="font-extrabold text-indigo-900 text-sm">
+                {formatCurrency(calculateDepositAmount(formData.price, formData.depositType, formData.depositValue))}
+              </span>
+            </div>
           </div>
 
           {/* Select Included Services */}

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Sign In',
+  title: 'Sign In | Ctrl Room',
+  description: 'Enterprise workspace and operations portal.',
 }
 
 export default function AuthLayout({
@@ -10,8 +11,9 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800 flex items-center justify-center p-4">
+    <div className="min-h-screen w-full bg-[#05070E] text-slate-100 flex flex-col justify-center items-center relative overflow-hidden selection:bg-indigo-500/30 selection:text-indigo-200">
       {children}
     </div>
   )
 }
+

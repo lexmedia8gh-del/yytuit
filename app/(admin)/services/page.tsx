@@ -28,8 +28,8 @@ import {
   updateDocument,
   subscribeToCollection,
 } from '@/lib/firebase/firestore'
-import type { Service, ServiceCategory, ServicePricingType } from '@/lib/types'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import type { Service, ServiceCategory, ServicePricingType, DepositType } from '@/lib/types'
+import { formatCurrency, formatDate, calculateDepositAmount } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 const PRESET_CATEGORIES: ServiceCategory[] = [
@@ -67,6 +67,8 @@ export default function ServicesPage() {
     description: '',
     defaultPrice: 0,
     pricingType: 'fixed' as ServicePricingType,
+    depositType: 'percentage' as DepositType,
+    depositValue: 40,
     currency: 'GHS',
     status: 'active' as 'active' | 'inactive',
   })
@@ -99,6 +101,8 @@ export default function ServicesPage() {
       description: '',
       defaultPrice: 0,
       pricingType: 'fixed',
+      depositType: 'percentage',
+      depositValue: 40,
       currency: 'GHS',
       status: 'active',
     })
@@ -120,6 +124,8 @@ export default function ServicesPage() {
       description: service.description || '',
       defaultPrice: service.defaultPrice || 0,
       pricingType: service.pricingType || 'fixed',
+      depositType: service.depositType || 'percentage',
+      depositValue: service.depositValue !== undefined ? service.depositValue : 40,
       currency: service.currency || 'GHS',
       status: service.status === 'inactive' ? 'inactive' : 'active',
     })
@@ -138,6 +144,9 @@ export default function ServicesPage() {
         ? formData.customCategory.trim()
         : formData.category
 
+    const basePrice = Number(formData.defaultPrice) || 0
+    const calcDeposit = calculateDepositAmount(basePrice, formData.depositType, formData.depositValue)
+
     setIsSubmitting(true)
     try {
       if (editingService) {
@@ -145,8 +154,11 @@ export default function ServicesPage() {
           name: formData.name,
           category: finalCategory,
           description: formData.description,
-          defaultPrice: Number(formData.defaultPrice) || 0,
+          defaultPrice: basePrice,
           pricingType: formData.pricingType,
+          depositType: formData.depositType,
+          depositValue: Number(formData.depositValue) || 0,
+          requiredDeposit: calcDeposit,
           currency: formData.currency,
           status: formData.status,
         })
@@ -156,8 +168,11 @@ export default function ServicesPage() {
           name: formData.name,
           category: finalCategory,
           description: formData.description,
-          defaultPrice: Number(formData.defaultPrice) || 0,
+          defaultPrice: basePrice,
           pricingType: formData.pricingType,
+          depositType: formData.depositType,
+          depositValue: Number(formData.depositValue) || 0,
+          requiredDeposit: calcDeposit,
           currency: formData.currency,
           status: 'active',
           createdBy: 'admin',
@@ -315,7 +330,25 @@ export default function ServicesPage() {
                 </div>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-border flex items-center justify-between">
+              {/* Deposit Info */}
+              <div className="pt-3 border-t border-border/60 flex items-center justify-between text-xs">
+                <span className="text-gray-500 font-medium">Req. Deposit:</span>
+                <span className="font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                  {formatCurrency(
+                    service.requiredDeposit ??
+                      calculateDepositAmount(
+                        service.defaultPrice,
+                        service.depositType || 'percentage',
+                        service.depositValue !== undefined ? service.depositValue : 40
+                      )
+                  )}
+                  {service.depositType === 'percentage' || !service.depositType
+                    ? ` (${service.depositValue !== undefined ? service.depositValue : 40}%)`
+                    : ' (Fixed)'}
+                </span>
+              </div>
+
+              <div className="pt-4 mt-4 border-t border-border flex items-center justify-between">
                 <div>
                   <p className="text-[10px] uppercase font-bold text-gray-400">
                     {service.pricingType === 'starting_from'
@@ -414,16 +447,81 @@ export default function ServicesPage() {
           )}
 
           {formData.pricingType !== 'custom' && (
-            <Input
-              label="Base Price (GH₵) *"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="500.00"
-              value={formData.defaultPrice}
-              onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })}
-              required
-            />
+            <>
+              <Input
+                label="Base Price (GH₵) *"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="500.00"
+                value={formData.defaultPrice}
+                onChange={(e) => setFormData({ ...formData, defaultPrice: Number(e.target.value) })}
+                required
+              />
+
+              {/* Required Service Deposit */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <DollarSign size={14} className="text-indigo-600" />
+                    Required Service Deposit
+                  </label>
+                  <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                    Auto Updates
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Deposit Type</label>
+                    <div className="flex rounded-xl border border-gray-200 p-1 bg-white">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, depositType: 'percentage' })}
+                        className={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all ${
+                          formData.depositType === 'percentage'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Percentage (%)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, depositType: 'fixed' })}
+                        className={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all ${
+                          formData.depositType === 'fixed'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Fixed Amount
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Input
+                      label={formData.depositType === 'percentage' ? 'Deposit Percentage (%)' : 'Deposit Amount (GH₵)'}
+                      type="number"
+                      min="0"
+                      max={formData.depositType === 'percentage' ? '100' : undefined}
+                      step={formData.depositType === 'percentage' ? '1' : '0.01'}
+                      placeholder={formData.depositType === 'percentage' ? '40' : '200.00'}
+                      value={formData.depositValue}
+                      onChange={(e) => setFormData({ ...formData, depositValue: Number(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-white border border-indigo-100 flex items-center justify-between text-xs">
+                  <span className="text-gray-600 font-medium">Calculated Required Deposit:</span>
+                  <span className="font-extrabold text-indigo-900">
+                    {formatCurrency(calculateDepositAmount(formData.defaultPrice, formData.depositType, formData.depositValue))}
+                  </span>
+                </div>
+              </div>
+            </>
           )}
 
           {editingService && (

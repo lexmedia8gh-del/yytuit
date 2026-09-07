@@ -28,6 +28,21 @@ export function formatAmount(amount: number): string {
   }).format(amount)
 }
 
+// ─── Deposit Calculation Utility ──────────────────────────────
+export function calculateDepositAmount(
+  totalPrice: number,
+  depositType: 'fixed' | 'percentage' = 'percentage',
+  depositValue: number = 50
+): number {
+  const price = Math.max(0, Number(totalPrice) || 0)
+  const val = Math.max(0, Number(depositValue) || 0)
+  if (depositType === 'percentage') {
+    const pct = Math.min(100, val)
+    return Math.round(((price * pct) / 100) * 100) / 100
+  }
+  return Math.min(price, val)
+}
+
 // ─── Date Formatting ─────────────────────────────────────────
 export function formatDate(
   date: Timestamp | Date | string | null | undefined,
