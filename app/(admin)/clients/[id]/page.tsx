@@ -41,6 +41,7 @@ import type { Client, Project, Invoice, Payment, ClientLink } from '@/lib/types'
 import { formatCurrency, formatDate, getStatusColor, copyToClipboard, getClientAppUrl } from '@/lib/utils'
 import { NewProjectWizard } from '@/components/projects/NewProjectWizard'
 import { QuickJobModal } from '@/components/projects/QuickJobModal'
+import { RequestClientInfoModal } from '@/components/clients/RequestClientInfoModal'
 import toast from 'react-hot-toast'
 
 type TabId = 'projects' | 'invoices' | 'payments' | 'links' | 'notes' | 'communication'
@@ -66,6 +67,7 @@ export default function ClientProfilePage() {
   // Wizard
   const [showWizard, setShowWizard] = useState(false)
   const [showQuickJobModal, setShowQuickJobModal] = useState(false)
+  const [showRequestInfoModal, setShowRequestInfoModal] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('action') === 'new-project') {
@@ -209,7 +211,15 @@ export default function ClientProfilePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            icon={<MessageSquare size={15} className="text-indigo-600" />}
+            onClick={() => setShowRequestInfoModal(true)}
+            className="bg-white hover:bg-slate-50 text-slate-700 border-slate-300"
+          >
+            📋 Request Info
+          </Button>
           <Button
             variant="accent"
             icon={<Zap size={15} className="fill-current" />}
@@ -222,7 +232,7 @@ export default function ClientProfilePage() {
             icon={<Plus size={15} />}
             onClick={() => setShowWizard(true)}
           >
-            Create Project / Select Service
+            Create Project
           </Button>
         </div>
       </div>
@@ -753,6 +763,14 @@ export default function ClientProfilePage() {
             ]).then((data) => setProjects(data))
           }
         }}
+      />
+
+      {/* Request Client Info Template Modal */}
+      <RequestClientInfoModal
+        isOpen={showRequestInfoModal}
+        onClose={() => setShowRequestInfoModal(false)}
+        initialPhone={client.phone || client.whatsappNumber || ''}
+        initialClientName={client.fullName}
       />
     </div>
   )

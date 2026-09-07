@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { UserPlus, FolderPlus, FileText, Link2, Zap, type LucideIcon } from 'lucide-react'
+import { UserPlus, FolderPlus, FileText, Link2, Zap, MessageSquare, type LucideIcon } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 
 interface QuickAction {
@@ -22,6 +22,23 @@ interface QuickActionsProps {
 
 export function QuickActions({ onOpenQuickJob }: QuickActionsProps) {
   const actions: QuickAction[] = [
+    {
+      label: '⚡ Quick Add Client',
+      href: '/clients?action=quickadd',
+      icon: UserPlus,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-50 border border-indigo-200/60',
+      description: 'Extract & create client from WhatsApp/notes',
+      highlight: true,
+    },
+    {
+      label: '📋 Request Info',
+      href: '/clients?action=requestinfo',
+      icon: MessageSquare,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50 border border-emerald-200/60',
+      description: 'Send WhatsApp info request template',
+    },
     {
       label: 'Quick Job',
       href: '/projects?action=quickjob',

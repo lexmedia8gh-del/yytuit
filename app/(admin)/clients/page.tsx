@@ -30,6 +30,8 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
+import { QuickAddClientModal } from '@/components/clients/QuickAddClientModal'
+import { RequestClientInfoModal } from '@/components/clients/RequestClientInfoModal'
 import {
   COLLECTIONS,
   getDocuments,
@@ -41,6 +43,7 @@ import {
 import type { Client, ClientStatus } from '@/lib/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { Zap, Sparkles } from 'lucide-react'
 
 export default function ClientsPage() {
   const router = useRouter()
@@ -51,10 +54,24 @@ export default function ClientsPage() {
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
+  const [isRequestInfoOpen, setIsRequestInfoOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [deactivatingClient, setDeactivatingClient] = useState<Client | null>(null)
   const [deletingClient, setDeletingClient] = useState<Client | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Auto-open modals via URL params
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('action') === 'quickadd') {
+        setIsQuickAddOpen(true)
+      } else if (params.get('action') === 'requestinfo') {
+        setIsRequestInfoOpen(true)
+      }
+    }
+  }, [])
 
   // Form State
   const [formData, setFormData] = useState({
@@ -243,9 +260,34 @@ export default function ClientsPage() {
         title="Clients"
         subtitle="Manage client records, view project history, and track payment balances."
         action={
-          <Button onClick={openAddModal} variant="primary" icon={<UserPlus size={18} />}>
-            Add Client
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={() => setIsRequestInfoOpen(true)}
+              variant="outline"
+              size="md"
+              icon={<MessageSquare size={16} className="text-indigo-600" />}
+              className="bg-white hover:bg-slate-50 text-slate-700 border-slate-300"
+            >
+              📋 Request Client Info
+            </Button>
+            <Button
+              onClick={() => setIsQuickAddOpen(true)}
+              variant="accent"
+              size="md"
+              icon={<Zap size={16} className="fill-current text-white" />}
+              className="font-bold shadow-sm"
+            >
+              ⚡ Quick Add Client
+            </Button>
+            <Button
+              onClick={openAddModal}
+              variant="outline"
+              size="md"
+              icon={<UserPlus size={16} />}
+            >
+              Add Client
+            </Button>
+          </div>
         }
       />
 
@@ -298,9 +340,26 @@ export default function ClientsPage() {
                 : 'Get started by creating your first client record.'}
             </p>
             {!search && statusFilter === 'all' && (
-              <Button onClick={openAddModal} variant="primary" icon={<UserPlus size={18} />}>
-                Add First Client
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button
+                  onClick={() => setIsQuickAddOpen(true)}
+                  variant="accent"
+                  icon={<Zap size={18} className="fill-current text-white" />}
+                  className="font-bold"
+                >
+                  ⚡ Quick Add Client
+                </Button>
+                <Button
+                  onClick={() => setIsRequestInfoOpen(true)}
+                  variant="outline"
+                  icon={<MessageSquare size={18} className="text-indigo-600" />}
+                >
+                  📋 Request Client Info
+                </Button>
+                <Button onClick={openAddModal} variant="ghost" icon={<UserPlus size={18} />}>
+                  Manual Add
+                </Button>
+              </div>
             )}
           </div>
         ) : (
@@ -695,6 +754,18 @@ export default function ClientsPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Quick Add Client Intake Modal */}
+      <QuickAddClientModal
+        isOpen={isQuickAddOpen}
+        onClose={() => setIsQuickAddOpen(false)}
+      />
+
+      {/* Request Client Info Template Modal */}
+      <RequestClientInfoModal
+        isOpen={isRequestInfoOpen}
+        onClose={() => setIsRequestInfoOpen(false)}
+      />
     </div>
   )
 }
