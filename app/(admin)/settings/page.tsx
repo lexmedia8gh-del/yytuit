@@ -41,9 +41,9 @@ const tabs: { id: SettingsTab; label: string; icon: React.ElementType; isDanger?
   { id: 'danger', label: 'Reset App Data', icon: AlertTriangle, isDanger: true },
 ]
 
-const DEFAULT_SMS_TEMPLATE = `Hello {client_name} 👋
+const DEFAULT_SMS_TEMPLATE = `Hello {client_name},
 
-Welcome to LEXMEDIA.GH!
+Welcome to Ctrl Room!
 
 Your information has been successfully added to our system. We look forward to working with you.
 

@@ -7,9 +7,9 @@ import type { BusinessSettings, Client } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
-const DEFAULT_SMS_TEMPLATE = `Hello {client_name} 👋
+const DEFAULT_SMS_TEMPLATE = `Hello {client_name},
 
-Welcome to LEXMEDIA.GH!
+Welcome to Ctrl Room!
 
 Your information has been successfully added to our system. We look forward to working with you.
 
@@ -68,12 +68,23 @@ export async function POST(req: NextRequest) {
     const apiKey = settings.textbeltApiKey || process.env.TEXTBELT_API_KEY || 'textbelt'
     const template = templateOverride || settings.newClientSmsTemplate || DEFAULT_SMS_TEMPLATE
 
-    // 2. Format message with placeholders
+    // 2. Format message with placeholders (clean plain-text only)
     const message = template
       .replace(/\{client_name\}/g, clientName)
       .replace(/\{client_phone\}/g, formattedPhone)
+      .trim()
 
-    // 3. Send via Textbelt API
+    // 3. Inspect message for URLs or web addresses to prevent Textbelt URL rejection
+    const hasUrl = /https?:\/\/|www\.|\.com|\.gh|\.org|\.net|\.io/i.test(message)
+    if (hasUrl) {
+      console.warn('[Textbelt SMS Warning] Message contains potential URL or web address which may be blocked by Textbelt free tier:', message)
+    }
+
+    // Temporary safe debugging logging final SMS message and recipient without exposing API key
+    console.log('[Textbelt SMS Debug] Sending plain-text message to:', formattedPhone)
+    console.log('[Textbelt SMS Debug] Message content:\n', message)
+
+    // 4. Send via Textbelt API (only sending phone, message, key)
     const textbeltRes = await fetch('https://textbelt.com/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
