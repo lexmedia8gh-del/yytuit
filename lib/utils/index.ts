@@ -411,3 +411,14 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     return true
   }
 }
+
+export function formatWhatsAppNumber(phone?: string): string {
+  if (!phone) return ''
+  let cleaned = phone.replace(/\D/g, '')
+  if (cleaned.startsWith('0')) {
+    cleaned = '233' + cleaned.substring(1)
+  } else if (!cleaned.startsWith('233') && cleaned.length === 9) {
+    cleaned = '233' + cleaned
+  }
+  return cleaned
+}

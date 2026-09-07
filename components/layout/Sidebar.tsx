@@ -111,11 +111,11 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         <div className="h-16 flex items-center px-5 border-b border-gray-200 shrink-0">
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-gray-900 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-              LM
+              CR
             </div>
             <div>
               <span className="font-bold text-gray-900 text-sm tracking-tight block leading-tight">
-                LexMedia
+                Ctrl Room
               </span>
               <span className="text-[11px] text-gray-500 font-medium block leading-tight">
                 Admin Suite

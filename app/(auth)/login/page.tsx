@@ -87,12 +87,22 @@ function LoginFormContent() {
       {/* Card */}
       <div className="bg-white rounded-3xl shadow-modal overflow-hidden">
         {/* Header gradient */}
-        <div className="bg-gradient-accent p-8 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm mb-4 shadow-lg">
-            <Zap size={28} className="text-white" />
+        <div className="bg-gradient-accent p-8 text-center relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
+          <div className="relative z-10">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-xl mb-4 p-2 ring-4 ring-white/20">
+              <img
+                src="/uploads/branding/logo/1788575175476_dk.png"
+                alt="LEXMEDIA.GH"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none'
+                }}
+              />
+            </div>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">LEXMEDIA.GH</h1>
+            <p className="text-indigo-200 text-xs font-medium uppercase tracking-wider mt-1">Enterprise Management Portal</p>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">LEXMEDIA</h1>
-          <p className="text-indigo-200 text-sm mt-1">Business Management System</p>
         </div>
 
         {/* Form */}
@@ -178,18 +188,14 @@ function LoginFormContent() {
           </div>
 
           <div className="mt-6">
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="lg"
-              fullWidth
-              loading={isGoogleLoading}
-              disabled={isSubmitting}
+              disabled={isGoogleLoading || isSubmitting}
               onClick={handleGoogleLogin}
-              className="relative flex items-center justify-center gap-3 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
+              className="w-full h-12 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-800 font-semibold text-sm transition-all shadow-xs hover:shadow-sm flex items-center justify-center gap-3 disabled:opacity-60 disabled:pointer-events-none select-none"
             >
               {!isGoogleLoading && (
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                   <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                     fill="#4285F4"
@@ -209,8 +215,15 @@ function LoginFormContent() {
                   <path d="M1 1h22v22H1z" fill="none" />
                 </svg>
               )}
-              {isGoogleLoading ? 'Connecting to Google...' : 'Continue with Google'}
-            </Button>
+              {isGoogleLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  Connecting to Google...
+                </span>
+              ) : (
+                'Sign in with Google'
+              )}
+            </button>
           </div>
 
           <p className="text-center text-xs text-muted mt-6">

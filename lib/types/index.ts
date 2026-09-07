@@ -152,6 +152,7 @@ export interface Package {
 export type InvoiceStatus =
   | 'Draft'
   | 'Pending'
+  | 'Payment Link Ready'
   | 'Partially Paid'
   | 'Paid'
   | 'Overdue'
@@ -410,6 +411,7 @@ export interface BusinessSettings {
   currency: string
   currencySymbol: string
   invoicePrefix: string
+  invoiceName?: string
   invoiceStartNumber: number
   defaultTaxRate: number
   defaultPaymentTerms?: string

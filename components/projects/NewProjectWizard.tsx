@@ -37,6 +37,7 @@ import {
   generateSecureToken,
   copyToClipboard,
   getClientAppUrl,
+  formatWhatsAppNumber,
 } from '@/lib/utils'
 import { where, orderBy } from '@/lib/firebase/firestore'
 import toast from 'react-hot-toast'
@@ -359,6 +360,171 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
     onSuccess,
   ])
 
+  const handleCreateAndOpenWhatsApp = useCallback(async () => {
+    if (!selectedService || !selectedPackage) return
+    const phoneToUse = client.whatsappNumber || client.phone
+    if (!phoneToUse) {
+      toast.error('Client WhatsApp phone number is required to open WhatsApp.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const existingInvoices = await getDocuments<Invoice>(COLLECTIONS.INVOICES)
+      const invoiceNumber = generateLxmInvoiceNumber(existingInvoices.length)
+
+      const totalAmount = selectedPackage.price
+      const depositAmount =
+        selectedPackage.discount && selectedPackage.discount > 0 && selectedPackage.discount < totalAmount
+          ? selectedPackage.discount
+          : Math.round(totalAmount * 0.4)
+      const outstandingBalance = totalAmount
+
+      const projectRef = doc(collection(db, COLLECTIONS.PROJECTS))
+      const invoiceRef = doc(collection(db, COLLECTIONS.INVOICES))
+
+      const batch = writeBatch(db)
+
+      batch.set(projectRef, {
+        name: projectName || `${client.fullName} — ${selectedPackage.title}`,
+        clientId: client.id,
+        clientName: client.fullName,
+        clientEmail: client.email,
+        serviceId: selectedService.id,
+        serviceName: selectedService.name,
+        packageId: selectedPackage.id,
+        packageTitle: selectedPackage.title,
+        invoiceId: invoiceRef.id,
+        invoiceNumber,
+        price: totalAmount,
+        depositAmount,
+        amountPaid: 0,
+        outstandingBalance,
+        currency: selectedPackage.currency || 'GHS',
+        status: 'Awaiting Payment',
+        paymentStatus: 'Unpaid',
+        progress: 0,
+        startDate: startDate || null,
+        deadline: dueDate || null,
+        notes: projectNotes || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: 'admin',
+      })
+
+      batch.set(invoiceRef, {
+        invoiceNumber,
+        clientId: client.id,
+        clientName: client.fullName,
+        clientEmail: client.email,
+        projectId: projectRef.id,
+        projectName: projectName || `${client.fullName} — ${selectedPackage.title}`,
+        packageId: selectedPackage.id,
+        packageTitle: selectedPackage.title,
+        serviceId: selectedService.id,
+        serviceName: selectedService.name,
+        items: [
+          {
+            id: `item_${Date.now()}`,
+            description: `${selectedService.name} — ${selectedPackage.title}`,
+            quantity: 1,
+            unitPrice: totalAmount,
+            total: totalAmount,
+          },
+        ],
+        subtotal: totalAmount,
+        discountAmount: 0,
+        taxAmount: 0,
+        total: totalAmount,
+        amountPaid: 0,
+        balanceDue: totalAmount,
+        depositAmount,
+        currency: selectedPackage.currency || 'GHS',
+        status: 'Payment Link Ready',
+        invoiceDate: serverTimestamp(),
+        dueDate: dueDate || null,
+        notes: projectNotes || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: 'admin',
+      })
+
+      const clientRef = doc(db, COLLECTIONS.CLIENTS, client.id)
+      batch.update(clientRef, {
+        projectCount: (client.projectCount || 0) + 1,
+        totalBilled: (client.totalBilled || 0) + totalAmount,
+        outstandingBalance: (client.outstandingBalance || 0) + totalAmount,
+        updatedAt: serverTimestamp(),
+      })
+
+      await batch.commit()
+
+      let linkToken = generateSecureToken('p_')
+      let paymentUrl = ''
+      try {
+        const appUrl = getClientAppUrl()
+        paymentUrl = `${appUrl}/pay/${linkToken}`
+
+        await addDocument(COLLECTIONS.CLIENT_LINKS, {
+          token: linkToken,
+          clientId: client.id,
+          clientName: client.fullName,
+          projectId: projectRef.id,
+          projectName: projectName || `${client.fullName} — ${selectedPackage.title}`,
+          packageId: selectedPackage.id,
+          packageTitle: selectedPackage.title,
+          invoiceId: invoiceRef.id,
+          invoiceNumber,
+          amount: depositAmount,
+          currency: selectedPackage.currency || 'GHS',
+          status: 'Payment Link Ready',
+          paymentStatus: 'Unpaid',
+          viewCount: 0,
+          createdBy: 'admin',
+        })
+      } catch (linkErr) {
+        console.warn('Payment link generation failed:', linkErr)
+      }
+
+      setResult({
+        projectId: projectRef.id,
+        invoiceId: invoiceRef.id,
+        invoiceNumber,
+        linkToken,
+        paymentUrl,
+        service: selectedService,
+        pkg: selectedPackage,
+        totalAmount,
+        depositAmount,
+        outstandingBalance,
+      })
+
+      const formattedPhone = formatWhatsAppNumber(phoneToUse)
+      const message = `Hello ${client.fullName}! 👋\n\nYour invoice *${invoiceNumber}* for *${selectedService.name}* (${selectedPackage.title}) is ready.\n\n📋 Service: ${selectedService.name}\n📦 Package: ${selectedPackage.title}\n💰 Total Amount: ${formatCurrency(totalAmount)}\n💳 Deposit Due: ${formatCurrency(depositAmount)}\n🔗 Secure Payment Link:\n${paymentUrl}\n\nThank you for choosing Lexmedia! 🙏`
+
+      const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
+      window.open(waUrl, '_blank')
+
+      setStep('success')
+      toast.success('Payment link generated & WhatsApp opened successfully!')
+      onSuccess?.()
+    } catch (err: any) {
+      console.error('Project creation failed:', err)
+      toast.error(err?.message || 'Failed to create project & open WhatsApp.')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [
+    selectedService,
+    selectedPackage,
+    client,
+    projectName,
+    projectNotes,
+    startDate,
+    dueDate,
+    onSuccess,
+  ])
+
   const handleCopyLink = async () => {
     if (!result?.paymentUrl) return
     await copyToClipboard(result.paymentUrl)
@@ -597,16 +763,16 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
                     {client.company && <p className="text-xs text-muted">{client.company}</p>}
                   </div>
                   <div>
+                    <p className="text-xs text-muted font-semibold uppercase tracking-wide">WhatsApp Phone</p>
+                    <p className="font-semibold text-gray-900 mt-0.5">{client.whatsappNumber || client.phone || 'Not provided'}</p>
+                  </div>
+                  <div>
                     <p className="text-xs text-muted font-semibold uppercase tracking-wide">Service</p>
                     <p className="font-semibold text-gray-900 mt-0.5">{selectedService.name}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted font-semibold uppercase tracking-wide">Package</p>
                     <p className="font-semibold text-gray-900 mt-0.5">{selectedPackage.title}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted font-semibold uppercase tracking-wide">Duration</p>
-                    <p className="font-semibold text-gray-900 mt-0.5">{selectedPackage.deliveryTimeline || 'TBD'}</p>
                   </div>
                 </div>
 
@@ -686,22 +852,36 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-indigo-50/60 border border-indigo-100 flex items-start gap-2 text-xs text-indigo-900">
-                <FileText size={14} className="shrink-0 mt-0.5 text-indigo-600" />
-                <span>Clicking <strong>Confirm & Create Project</strong> will atomically create the project and invoice in Firestore, then generate a payment link for the deposit amount.</span>
+              <div className="p-3 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-start gap-2 text-xs text-emerald-900">
+                <MessageSquare size={14} className="shrink-0 mt-0.5 text-emerald-600" />
+                <span>Clicking <strong>Create Payment Link & Open WhatsApp</strong> will create the invoice/project, generate a secure Paystack payment link, and open WhatsApp with a pre-filled message (status set to <em>Payment Link Ready</em>).</span>
               </div>
 
-              <Button
-                variant="primary"
-                fullWidth
-                size="md"
-                onClick={handleConfirm}
-                loading={submitting}
-                disabled={submitting || !projectName.trim()}
-                icon={submitting ? undefined : <Sparkles size={16} />}
-              >
-                {submitting ? 'Creating Project…' : 'Confirm & Create Project'}
-              </Button>
+              <div className="space-y-2.5">
+                <Button
+                  variant="primary"
+                  fullWidth
+                  size="md"
+                  onClick={handleCreateAndOpenWhatsApp}
+                  loading={submitting}
+                  disabled={submitting || !projectName.trim()}
+                  icon={submitting ? undefined : <MessageSquare size={16} className="text-emerald-200" />}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {submitting ? 'Processing…' : 'Create Payment Link & Open WhatsApp'}
+                </Button>
+                <Button
+                  variant="outline"
+                  fullWidth
+                  size="md"
+                  onClick={handleConfirm}
+                  loading={submitting}
+                  disabled={submitting || !projectName.trim()}
+                  icon={submitting ? undefined : <Sparkles size={16} />}
+                >
+                  {submitting ? 'Creating Project…' : 'Confirm & Create Project'}
+                </Button>
+              </div>
             </div>
           )}
 

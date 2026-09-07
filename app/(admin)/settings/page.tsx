@@ -42,6 +42,7 @@ const DEFAULT_SETTINGS: Partial<BusinessSettings> = {
   currency: 'GHS',
   currencySymbol: 'GH₵',
   invoicePrefix: 'LM-INV',
+  invoiceName: 'Standard Invoice',
   invoiceStartNumber: 1,
   defaultTaxRate: 0,
   defaultWhatsAppMessage:
@@ -429,12 +430,13 @@ export default function SettingsPage() {
                 <Card>
                   <h3 className="text-base font-semibold text-gray-900 mb-6">Invoice Settings</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input label="Invoice Title / Name" value={settings.invoiceName ?? 'Standard Invoice'} onChange={(e) => update('invoiceName', e.target.value)} placeholder="Standard Invoice" helperText="Default title displayed on invoices" required />
                     <Input label="Invoice Number Prefix" value={settings.invoicePrefix ?? 'LM-INV'} onChange={(e) => update('invoicePrefix', e.target.value)} helperText="e.g. LM-INV → LM-INV-0001" required />
                     <Input label="Starting Invoice Number" type="number" min={1} value={String(settings.invoiceStartNumber ?? 1)} onChange={(e) => update('invoiceStartNumber', parseInt(e.target.value) || 1)} helperText="First invoice will use this number" />
                     <Select label="Currency" value={settings.currency ?? 'GHS'} onChange={(e) => update('currency', e.target.value)} options={[{ value: 'GHS', label: 'Ghana Cedi (GHS)' }, { value: 'USD', label: 'US Dollar (USD)' }, { value: 'EUR', label: 'Euro (EUR)' }, { value: 'GBP', label: 'British Pound (GBP)' }, { value: 'NGN', label: 'Nigerian Naira (NGN)' }]} />
                     <Input label="Currency Symbol" value={settings.currencySymbol ?? 'GH₵'} onChange={(e) => update('currencySymbol', e.target.value)} />
                     <Input label="Default Tax Rate (%)" type="number" min={0} max={100} step={0.5} value={String(settings.defaultTaxRate ?? 0)} onChange={(e) => update('defaultTaxRate', parseFloat(e.target.value) || 0)} helperText="Set to 0 for no tax" />
-                    <Input label="Default Payment Terms" value={settings.defaultPaymentTerms ?? ''} onChange={(e) => update('defaultPaymentTerms', e.target.value)} placeholder="e.g. Net 30, Due on receipt" />
+                    <Input label="Default Payment Terms" value={settings.defaultPaymentTerms ?? ''} onChange={(e) => update('defaultPaymentTerms', e.target.value)} placeholder="e.g. Net 30, Due on receipt" wrapperClassName="sm:col-span-2" />
                   </div>
                 </Card>
               )}
