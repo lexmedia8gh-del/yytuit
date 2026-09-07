@@ -31,16 +31,18 @@ import { Spinner } from '@/components/ui/Spinner'
 import {
   COLLECTIONS,
   getDocuments,
+  getDocument,
   addDocument,
   updateDocument,
   deleteDocument,
   subscribeToCollection,
 } from '@/lib/firebase/firestore'
-import type { Invoice, InvoiceStatus, Client, Service, Package, ClientLink } from '@/lib/types'
+import type { Invoice, InvoiceStatus, Client, Service, Package, ClientLink, BusinessSettings } from '@/lib/types'
 import {
   formatCurrency,
   formatDate,
   generateLxmInvoiceNumber,
+  generateInvoiceNumber,
   generateSecureToken,
   copyToClipboard,
   calculateInvoiceTotals,
@@ -53,6 +55,7 @@ export default function InvoicesPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [packages, setPackages] = useState<Package[]>([])
+  const [bizSettings, setBizSettings] = useState<BusinessSettings | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -103,6 +106,9 @@ export default function InvoicesPage() {
     getDocuments<Client>(COLLECTIONS.CLIENTS).then((c) => setClients(c))
     getDocuments<Service>(COLLECTIONS.SERVICES).then((s) => setServices(s))
     getDocuments<Package>(COLLECTIONS.PACKAGES).then((p) => setPackages(p))
+    getDocument<BusinessSettings>(COLLECTIONS.SETTINGS, 'business').then((settings) => {
+      if (settings) setBizSettings(settings)
+    })
 
     return () => unsubscribe()
   }, [])
@@ -214,7 +220,9 @@ export default function InvoicesPage() {
         })
         toast.success('Invoice updated successfully.')
       } else {
-        const autoNum = generateLxmInvoiceNumber(invoices.length)
+        const invoicePrefix = bizSettings?.invoicePrefix || 'LXM-INV'
+        const invoiceStartNum = bizSettings?.invoiceStartNumber || 1
+        const autoNum = generateInvoiceNumber(invoicePrefix, invoiceStartNum + invoices.length)
         await addDocument(COLLECTIONS.INVOICES, {
           invoiceNumber: autoNum,
           clientId: formData.clientId || '',
@@ -487,7 +495,7 @@ export default function InvoicesPage() {
           <div className="p-3 bg-accent-50/60 rounded-xl border border-accent-100 flex items-center justify-between text-xs text-accent-800">
             <span className="font-semibold">Invoice Number:</span>
             <span className="font-mono font-bold text-sm">
-              {editingInvoice ? editingInvoice.invoiceNumber : generateLxmInvoiceNumber(invoices.length)}
+              {editingInvoice ? editingInvoice.invoiceNumber : generateInvoiceNumber(bizSettings?.invoicePrefix || 'LXM-INV', (bizSettings?.invoiceStartNumber || 1) + invoices.length)}
             </span>
           </div>
 

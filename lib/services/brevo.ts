@@ -163,7 +163,8 @@ function renderEmailTemplate({
             <td style="padding: 36px 32px 24px 32px;">
 
               <!-- Greeting & Project Header -->
-              <h2 style="margin: 0 0 8px 0; font-size: 19px; font-weight: 700; color: #0f172a;">Hello ${escapeHtml(clientName)},</h2>
+              <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 700; color: #0f172a;">Your Deliverables Are Ready</h2>
+              <p style="margin: 0 0 8px 0; font-size: 15px; font-weight: 600; color: #0f172a;">Hello ${escapeHtml(clientName)},</p>
               <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #475569;">
                 ${introText}
               </p>
@@ -329,7 +330,7 @@ export async function sendDeliveryReadyEmail({
     primaryButtonText: 'View My Delivery',
     primaryButtonUrl: deliveryUrl,
     primaryButtonBg: '#2563eb',
-    introText: `Great news! Your final project files for <strong>${escapeHtml(projectName)}</strong> have been unlocked and are ready for download in your secure client delivery portal.`,
+    introText: `We’re pleased to let you know that the deliverables for your <strong>${escapeHtml(projectName)}</strong> are now ready.`,
     lexmediaLogoUrl,
     clientLogoUrl,
   })
@@ -337,7 +338,7 @@ export async function sendDeliveryReadyEmail({
   return sendBrevoEmail({
     toEmail,
     clientName,
-    subject: `Your LEXMEDIA.GH Delivery Is Ready — ${projectName}`,
+    subject: `Your Deliverables Are Ready — ${projectName}`,
     htmlContent,
     apiKey,
     senderEmail,
@@ -368,6 +369,10 @@ export async function sendDeliveryPaymentRequiredEmail({
   const hasBalance = amountDue > 0
   const formattedAmount = `${currencySymbol}${amountDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
+  const introText = hasBalance
+    ? `We’re pleased to let you know that the deliverables for your <strong>${escapeHtml(projectName)}</strong> are now ready.<br><br>Please complete any outstanding balance to gain access to your final high-resolution files.`
+    : `We’re pleased to let you know that the deliverables for your <strong>${escapeHtml(projectName)}</strong> are now ready.`
+
   const htmlContent = renderEmailTemplate({
     clientName,
     projectName,
@@ -379,16 +384,12 @@ export async function sendDeliveryPaymentRequiredEmail({
     primaryButtonText: hasBalance ? 'Complete Payment & View Files' : 'View My Delivery',
     primaryButtonUrl: paymentUrl,
     primaryButtonBg: hasBalance ? '#16a34a' : '#2563eb',
-    introText: hasBalance
-      ? `Your final deliverables for <strong>${escapeHtml(projectName)}</strong> have been prepared. Complete your remaining balance to immediately unlock high-resolution file downloads.`
-      : `Your final project files for <strong>${escapeHtml(projectName)}</strong> are ready for download in your secure client portal.`,
+    introText,
     lexmediaLogoUrl,
     clientLogoUrl,
   })
 
-  const subject = hasBalance
-    ? `Your LEXMEDIA.GH Delivery Is Ready — Balance Due: ${formattedAmount}`
-    : `Your LEXMEDIA.GH Delivery Is Ready — ${projectName}`
+  const subject = `Your Deliverables Are Ready — ${projectName}`
 
   return sendBrevoEmail({
     toEmail,

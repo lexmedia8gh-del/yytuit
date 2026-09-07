@@ -23,6 +23,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import {
   COLLECTIONS,
   getDocuments,
+  getDocument,
   addDocument,
   writeBatch,
   db,
@@ -30,10 +31,11 @@ import {
   collection,
   serverTimestamp,
 } from '@/lib/firebase/firestore'
-import type { Client, Service, Package, Invoice, ClientLink } from '@/lib/types'
+import type { Client, Service, Package, Invoice, ClientLink, BusinessSettings } from '@/lib/types'
 import {
   formatCurrency,
   generateLxmInvoiceNumber,
+  generateInvoiceNumber,
   generateSecureToken,
   copyToClipboard,
   getClientAppUrl,
@@ -203,7 +205,10 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
     try {
       // 1. Get current invoice count for number generation
       const existingInvoices = await getDocuments<Invoice>(COLLECTIONS.INVOICES)
-      const invoiceNumber = generateLxmInvoiceNumber(existingInvoices.length)
+      const bizSettings = await getDocument<BusinessSettings>(COLLECTIONS.SETTINGS, 'business')
+      const invoicePrefix = bizSettings?.invoicePrefix || 'LXM-INV'
+      const invoiceStartNum = bizSettings?.invoiceStartNumber || 1
+      const invoiceNumber = generateInvoiceNumber(invoicePrefix, invoiceStartNum + existingInvoices.length)
 
       const totalAmount = selectedPackage.price
       const depositAmount =
@@ -371,7 +376,10 @@ export function NewProjectWizard({ client, onClose, onSuccess }: Props) {
     setSubmitting(true)
     try {
       const existingInvoices = await getDocuments<Invoice>(COLLECTIONS.INVOICES)
-      const invoiceNumber = generateLxmInvoiceNumber(existingInvoices.length)
+      const bizSettings = await getDocument<BusinessSettings>(COLLECTIONS.SETTINGS, 'business')
+      const invoicePrefix = bizSettings?.invoicePrefix || 'LXM-INV'
+      const invoiceStartNum = bizSettings?.invoiceStartNumber || 1
+      const invoiceNumber = generateInvoiceNumber(invoicePrefix, invoiceStartNum + existingInvoices.length)
 
       const totalAmount = selectedPackage.price
       const depositAmount =
