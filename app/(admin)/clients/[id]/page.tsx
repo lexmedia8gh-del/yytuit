@@ -25,6 +25,7 @@ import {
   ExternalLink,
   FolderKanban,
   AlertCircle,
+  Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -39,6 +40,7 @@ import { where, orderBy } from '@/lib/firebase/firestore'
 import type { Client, Project, Invoice, Payment, ClientLink } from '@/lib/types'
 import { formatCurrency, formatDate, getStatusColor, copyToClipboard, getClientAppUrl } from '@/lib/utils'
 import { NewProjectWizard } from '@/components/projects/NewProjectWizard'
+import { QuickJobModal } from '@/components/projects/QuickJobModal'
 import toast from 'react-hot-toast'
 
 type TabId = 'projects' | 'invoices' | 'payments' | 'links' | 'notes' | 'communication'
@@ -63,6 +65,7 @@ export default function ClientProfilePage() {
 
   // Wizard
   const [showWizard, setShowWizard] = useState(false)
+  const [showQuickJobModal, setShowQuickJobModal] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('action') === 'new-project') {
@@ -206,13 +209,22 @@ export default function ClientProfilePage() {
           </div>
         </div>
 
-        <Button
-          variant="primary"
-          icon={<Plus size={15} />}
-          onClick={() => setShowWizard(true)}
-        >
-          Create Project / Select Service
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="accent"
+            icon={<Zap size={15} className="fill-current" />}
+            onClick={() => setShowQuickJobModal(true)}
+          >
+            + Create Quick Job
+          </Button>
+          <Button
+            variant="primary"
+            icon={<Plus size={15} />}
+            onClick={() => setShowWizard(true)}
+          >
+            Create Project / Select Service
+          </Button>
+        </div>
       </div>
 
       {/* Action Banner for Starting Project */}
@@ -729,6 +741,19 @@ export default function ClientProfilePage() {
           </div>
         </div>
       </div>
+      {/* Quick Job Modal */}
+      <QuickJobModal
+        isOpen={showQuickJobModal}
+        onClose={() => setShowQuickJobModal(false)}
+        onSuccess={() => {
+          setActiveTab('projects')
+          if (id) {
+            getDocuments<Project>(COLLECTIONS.PROJECTS, [
+              where('clientId', '==', id),
+            ]).then((data) => setProjects(data))
+          }
+        }}
+      />
     </div>
   )
 }

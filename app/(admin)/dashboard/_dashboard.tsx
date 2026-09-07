@@ -18,10 +18,12 @@ import {
   MessageSquare,
   CheckCircle2,
   Activity,
+  Zap,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatCard, StatsGrid } from '@/components/dashboard/StatCard'
 import { QuickActions } from '@/components/dashboard/QuickActions'
+import { QuickJobModal } from '@/components/projects/QuickJobModal'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
@@ -36,6 +38,8 @@ import type { Client, Project, Invoice, Payment } from '@/lib/types'
 
 export function Dashboard() {
   const { lexUser } = useAuth()
+
+  const [showQuickJobModal, setShowQuickJobModal] = useState(false)
 
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -161,11 +165,20 @@ export function Dashboard() {
         title={`${greeting()}, ${lexUser?.name?.split(' ')[0] ?? 'Admin'} 👋`}
         subtitle="Here's a live overview of your business activity and performance."
         action={
-          <Link href="/clients">
-            <Button variant="primary" icon={<Plus size={16} />}>
-              Add Client
+          <div className="flex items-center gap-2">
+            <Button
+              variant="accent"
+              icon={<Zap size={16} className="fill-current" />}
+              onClick={() => setShowQuickJobModal(true)}
+            >
+              + Create Quick Job
             </Button>
-          </Link>
+            <Link href="/clients">
+              <Button variant="outline" icon={<Plus size={16} />}>
+                Add Client
+              </Button>
+            </Link>
+          </div>
         }
       />
 
@@ -455,7 +468,7 @@ export function Dashboard() {
 
         {/* Right Column: Quick Actions & Welcome Banner */}
         <div className="space-y-5">
-          <QuickActions />
+          <QuickActions onOpenQuickJob={() => setShowQuickJobModal(true)} />
 
           {/* Recent Activity Feed */}
           <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
@@ -539,6 +552,12 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Quick Job Modal */}
+      <QuickJobModal
+        isOpen={showQuickJobModal}
+        onClose={() => setShowQuickJobModal(false)}
+      />
     </div>
   )
 }

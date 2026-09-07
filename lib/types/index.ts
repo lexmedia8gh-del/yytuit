@@ -77,11 +77,14 @@ export interface Service {
 // ─── Project ─────────────────────────────────────────────────
 export type ProjectStatus =
   | 'Inquiry'
+  | 'Pending'
+  | 'Confirmed'
   | 'Awaiting Payment'
   | 'Paid'
   | 'In Progress'
   | 'Review'
   | 'Revision'
+  | 'Deliverables Ready'
   | 'Completed'
   | 'Cancelled'
 
@@ -112,6 +115,8 @@ export interface Project {
   progress: number // 0-100
   notes?: string
   fileIds?: string[]
+  isQuickJob?: boolean
+  jobDate?: Timestamp | Date
   createdAt: Timestamp
   updatedAt: Timestamp
   createdBy: string

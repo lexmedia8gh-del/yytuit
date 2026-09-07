@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   FolderKanban,
   Search,
@@ -10,6 +11,7 @@ import {
   ChevronRight,
   Calendar,
   Trash2,
+  Zap,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -25,6 +27,7 @@ import {
 } from '@/lib/firebase/firestore'
 import type { Project, ProjectStatus } from '@/lib/types'
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils'
+import { QuickJobModal } from '@/components/projects/QuickJobModal'
 import toast from 'react-hot-toast'
 
 const STATUS_OPTIONS: ProjectStatus[] = [
@@ -38,13 +41,21 @@ const STATUS_OPTIONS: ProjectStatus[] = [
   'Cancelled',
 ]
 
-export default function ProjectsPage() {
+function ProjectsContent() {
+  const searchParams = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [deletingProject, setDeletingProject] = useState<Project | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showQuickJobModal, setShowQuickJobModal] = useState(false)
+
+  useEffect(() => {
+    if (searchParams?.get('action') === 'quickjob') {
+      setShowQuickJobModal(true)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     setLoading(true)
@@ -98,6 +109,15 @@ export default function ProjectsPage() {
       <PageHeader
         title="Projects"
         subtitle="Track all client projects, services, packages, and payment status."
+        action={
+          <Button
+            variant="accent"
+            icon={<Zap size={16} className="fill-current" />}
+            onClick={() => setShowQuickJobModal(true)}
+          >
+            + Create Quick Job
+          </Button>
+        }
       />
 
       {/* Controls */}
@@ -169,7 +189,14 @@ export default function ProjectsPage() {
                 {filtered.map((project) => (
                   <tr key={project.id} className="hover:bg-gray-50/60 transition-colors">
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-gray-900 max-w-[180px] truncate">{project.name}</div>
+                      <div className="font-semibold text-gray-900 max-w-[180px] truncate flex items-center gap-1.5">
+                        <span className="truncate">{project.name}</span>
+                        {(project.isQuickJob || project.serviceId === 'quick-job') && (
+                          <span className="shrink-0 text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                            ⚡ Quick Job
+                          </span>
+                        )}
+                      </div>
                       {project.invoiceNumber && (
                         <div className="text-[11px] text-gray-400 font-mono mt-0.5">{project.invoiceNumber}</div>
                       )}
@@ -264,6 +291,19 @@ export default function ProjectsPage() {
           </div>
         </div>
       </Modal>
+      {/* Quick Job Modal */}
+      <QuickJobModal
+        isOpen={showQuickJobModal}
+        onClose={() => setShowQuickJobModal(false)}
+      />
     </div>
+  )
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense fallback={<div className="p-8"><Spinner /></div>}>
+      <ProjectsContent />
+    </Suspense>
   )
 }

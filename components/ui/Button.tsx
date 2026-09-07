@@ -2,7 +2,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 
 // ─── Button Variants ─────────────────────────────────────────
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline'
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline' | 'accent'
 type ButtonSize = 'xs' | 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -17,6 +17,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
     'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 shadow-sm transition-colors',
+  accent:
+    'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 shadow-sm transition-colors font-semibold',
   secondary:
     'bg-gray-900 text-white hover:bg-gray-800 active:bg-gray-950 shadow-sm transition-colors',
   ghost:

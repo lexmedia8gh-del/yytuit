@@ -319,7 +319,7 @@ export async function sendDeliveryReadyEmail({
   }
 
   const senderEmail = process.env.BREVO_SENDER_EMAIL || 'lexmedia8gh@gmail.com'
-  const senderName = process.env.BREVO_SENDER_NAME || 'LEXMEDIA.GH'
+  const senderName = 'LEXMEDIA.GH'
 
   const htmlContent = renderEmailTemplate({
     clientName,
@@ -364,7 +364,7 @@ export async function sendDeliveryPaymentRequiredEmail({
   }
 
   const senderEmail = process.env.BREVO_SENDER_EMAIL || 'lexmedia8gh@gmail.com'
-  const senderName = process.env.BREVO_SENDER_NAME || 'LEXMEDIA.GH'
+  const senderName = 'LEXMEDIA.GH'
 
   const hasBalance = amountDue > 0
   const formattedAmount = `${currencySymbol}${amountDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -420,6 +420,7 @@ async function sendBrevoEmail({
   senderName: string
 }) {
   try {
+    const effectiveSenderName = 'LEXMEDIA.GH'
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -428,7 +429,7 @@ async function sendBrevoEmail({
         'api-key': apiKey,
       },
       body: JSON.stringify({
-        sender: { name: senderName, email: senderEmail },
+        sender: { name: effectiveSenderName, email: senderEmail },
         to: [{ email: toEmail, name: clientName }],
         subject,
         htmlContent,
