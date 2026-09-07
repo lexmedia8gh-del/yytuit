@@ -34,6 +34,7 @@ import { QuickAddClientModal } from '@/components/clients/QuickAddClientModal'
 import { RequestClientInfoModal } from '@/components/clients/RequestClientInfoModal'
 import {
   COLLECTIONS,
+  getDocument,
   getDocuments,
   addDocument,
   updateDocument,
@@ -185,6 +186,38 @@ export default function ClientsPage() {
           outstandingBalance: 0,
           createdBy: 'admin',
         })
+
+        // Trigger automatic Textbelt SMS if phone is provided and SMS is not disabled
+        if (formData.phone && formData.phone.trim()) {
+          try {
+            const settings = await getDocument<any>(COLLECTIONS.SETTINGS, 'business')
+            if (!settings || settings.enableNewClientSms !== false) {
+              fetch('/api/sms/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  clientId: newClientId,
+                  phone: formData.phone,
+                  fullName: formData.fullName,
+                }),
+              })
+                .then((res) => res.json())
+                .then((smsData) => {
+                  if (smsData.ok) {
+                    toast.success('Welcome SMS sent successfully to client.')
+                  } else {
+                    console.warn('[New Client SMS] Non-blocking notice:', smsData.error)
+                  }
+                })
+                .catch((smsErr) => {
+                  console.warn('[New Client SMS Non-blocking Error]:', smsErr)
+                })
+            }
+          } catch (settingsErr) {
+            console.warn('[New Client SMS] Could not check settings:', settingsErr)
+          }
+        }
+
         toast.success('Client created successfully.')
         setIsAddModalOpen(false)
         resetForm()

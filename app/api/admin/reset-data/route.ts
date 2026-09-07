@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb, requireAdmin } from '@/lib/firebase/admin'
 import { COLLECTIONS } from '@/lib/firebase/firestore'
+import { db } from '@/lib/firebase/config'
+import { collection, doc, getDocs, writeBatch } from 'firebase/firestore'
 import { supabase } from '@/lib/supabase/client'
 import path from 'path'
 import fs from 'fs'
@@ -37,6 +39,32 @@ async function listAllBucketFiles(bucketName: string, folder = ''): Promise<stri
   }
 }
 
+const hasAdminKey = Boolean(
+  process.env.FIREBASE_ADMIN_PRIVATE_KEY && process.env.FIREBASE_ADMIN_CLIENT_EMAIL
+)
+
+/**
+ * Helper to get count of documents in a collection with Web SDK fallback
+ */
+async function getCollectionCount(colName: string): Promise<number> {
+  if (hasAdminKey) {
+    try {
+      const adminDb = getAdminDb()
+      const snap = await adminDb.collection(colName).get()
+      return snap.size
+    } catch (e: any) {
+      console.warn(`[Reset API] Admin count failed for ${colName}:`, e?.message)
+    }
+  }
+
+  try {
+    const snap = await getDocs(collection(db, colName))
+    return snap.size
+  } catch {
+    return 0
+  }
+}
+
 /**
  * GET /api/admin/reset-data
  * Returns current counts of all operational records in the database.
@@ -48,49 +76,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
 
-  const adminDb = getAdminDb()
-
   try {
     const [
-      clientsSnap,
-      projectsSnap,
-      invoicesSnap,
-      paymentsSnap,
-      deliveriesSnap,
-      deliveryFilesSnap,
-      clientLinksSnap,
-      notifsSnap,
-      logsSnap,
-      packagesSnap,
-      servicesSnap,
+      clients,
+      projects,
+      invoices,
+      payments,
+      deliveries,
+      deliveryFiles,
+      clientLinks,
+      notifications,
+      activityLogs,
+      packages,
+      services,
     ] = await Promise.all([
-      adminDb.collection(COLLECTIONS.CLIENTS).get(),
-      adminDb.collection(COLLECTIONS.PROJECTS).get(),
-      adminDb.collection(COLLECTIONS.INVOICES).get(),
-      adminDb.collection(COLLECTIONS.PAYMENTS).get(),
-      adminDb.collection(COLLECTIONS.DELIVERIES).get(),
-      adminDb.collection(COLLECTIONS.DELIVERY_FILES).get(),
-      adminDb.collection(COLLECTIONS.CLIENT_LINKS).get(),
-      adminDb.collection(COLLECTIONS.NOTIFICATIONS).get(),
-      adminDb.collection(COLLECTIONS.ACTIVITY_LOGS).get(),
-      adminDb.collection(COLLECTIONS.PACKAGES).get(),
-      adminDb.collection(COLLECTIONS.SERVICES).get(),
+      getCollectionCount(COLLECTIONS.CLIENTS),
+      getCollectionCount(COLLECTIONS.PROJECTS),
+      getCollectionCount(COLLECTIONS.INVOICES),
+      getCollectionCount(COLLECTIONS.PAYMENTS),
+      getCollectionCount(COLLECTIONS.DELIVERIES),
+      getCollectionCount(COLLECTIONS.DELIVERY_FILES),
+      getCollectionCount(COLLECTIONS.CLIENT_LINKS),
+      getCollectionCount(COLLECTIONS.NOTIFICATIONS),
+      getCollectionCount(COLLECTIONS.ACTIVITY_LOGS),
+      getCollectionCount(COLLECTIONS.PACKAGES),
+      getCollectionCount(COLLECTIONS.SERVICES),
     ])
 
     return NextResponse.json({
       ok: true,
       counts: {
-        clients: clientsSnap.size,
-        projects: projectsSnap.size,
-        invoices: invoicesSnap.size,
-        payments: paymentsSnap.size,
-        deliveries: deliveriesSnap.size,
-        deliveryFiles: deliveryFilesSnap.size,
-        clientLinks: clientLinksSnap.size,
-        notifications: notifsSnap.size,
-        activityLogs: logsSnap.size,
-        packages: packagesSnap.size,
-        services: servicesSnap.size,
+        clients,
+        projects,
+        invoices,
+        payments,
+        deliveries,
+        deliveryFiles,
+        clientLinks,
+        notifications,
+        activityLogs,
+        packages,
+        services,
       },
       preserved: [
         'Admin account & authentication',
@@ -142,7 +168,6 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const adminDb = getAdminDb()
   const deletedCounts: Record<string, number> = {}
   let filesDeletedCount = 0
 
@@ -150,11 +175,24 @@ export async function POST(req: NextRequest) {
     // ─── 1. Identify & Permanently Delete Files from Supabase Storage ─────
     const storagePathsToDelete = new Set<string>()
 
-    // Gather from deliveryFiles
+    // Gather from deliveryFiles (try Admin SDK first if configured, fallback to Web SDK)
     try {
-      const deliveryFilesSnap = await adminDb.collection(COLLECTIONS.DELIVERY_FILES).get()
-      for (const doc of deliveryFilesSnap.docs) {
-        const storagePath = doc.data()?.storagePath
+      let docs: any[] = []
+      if (hasAdminKey) {
+        try {
+          const snap = await getAdminDb().collection(COLLECTIONS.DELIVERY_FILES).get()
+          docs = snap.docs
+        } catch {
+          const snap = await getDocs(collection(db, COLLECTIONS.DELIVERY_FILES))
+          docs = snap.docs
+        }
+      } else {
+        const snap = await getDocs(collection(db, COLLECTIONS.DELIVERY_FILES))
+        docs = snap.docs
+      }
+
+      for (const d of docs) {
+        const storagePath = d.data()?.storagePath
         if (storagePath && typeof storagePath === 'string' && !storagePath.startsWith('branding/')) {
           storagePathsToDelete.add(storagePath)
         }
@@ -165,9 +203,22 @@ export async function POST(req: NextRequest) {
 
     // Gather from generic files collection
     try {
-      const filesSnap = await adminDb.collection(COLLECTIONS.FILES).get()
-      for (const doc of filesSnap.docs) {
-        const pathVal = doc.data()?.storagePath || doc.data()?.path
+      let docs: any[] = []
+      if (hasAdminKey) {
+        try {
+          const snap = await getAdminDb().collection(COLLECTIONS.FILES).get()
+          docs = snap.docs
+        } catch {
+          const snap = await getDocs(collection(db, COLLECTIONS.FILES))
+          docs = snap.docs
+        }
+      } else {
+        const snap = await getDocs(collection(db, COLLECTIONS.FILES))
+        docs = snap.docs
+      }
+
+      for (const d of docs) {
+        const pathVal = d.data()?.storagePath || d.data()?.path
         if (pathVal && typeof pathVal === 'string' && !pathVal.startsWith('branding/')) {
           storagePathsToDelete.add(pathVal)
         }
@@ -218,23 +269,53 @@ export async function POST(req: NextRequest) {
       console.warn('[Reset API] Local deliveries cleanup warning:', diskErr?.message)
     }
 
-    // ─── 3. Helper: Batch Delete Firestore Collections Safely ───────────
+    // ─── 3. Helper: Batch Delete Firestore Collections Safely with Fallback ──
     const deleteEntireCollection = async (collectionName: string): Promise<number> => {
-      const collectionRef = adminDb.collection(collectionName)
-      const snapshot = await collectionRef.get()
-      const total = snapshot.size
-      if (total === 0) return 0
+      // 1. If Service Account key is configured, use Admin SDK
+      if (hasAdminKey) {
+        try {
+          const adminDb = getAdminDb()
+          const collectionRef = adminDb.collection(collectionName)
+          const snapshot = await collectionRef.get()
+          const total = snapshot.size
+          if (total === 0) return 0
 
-      const batchLimit = 400
-      for (let i = 0; i < snapshot.docs.length; i += batchLimit) {
-        const chunk = snapshot.docs.slice(i, i + batchLimit)
-        const batch = adminDb.batch()
-        for (const doc of chunk) {
-          batch.delete(doc.ref)
+          const batchLimit = 400
+          for (let i = 0; i < snapshot.docs.length; i += batchLimit) {
+            const chunk = snapshot.docs.slice(i, i + batchLimit)
+            const batch = adminDb.batch()
+            for (const doc of chunk) {
+              batch.delete(doc.ref)
+            }
+            await batch.commit()
+          }
+          return total
+        } catch (adminErr: any) {
+          console.warn(`[Reset API] Admin batch delete failed for ${collectionName}, using Web SDK:`, adminErr?.message)
         }
-        await batch.commit()
       }
-      return total
+
+      // 2. Direct Web SDK (fast, client credentials)
+      try {
+        const colRef = collection(db, collectionName)
+        const snap = await getDocs(colRef)
+        const total = snap.size
+        if (total === 0) return 0
+
+        const batchLimit = 400
+        for (let i = 0; i < snap.docs.length; i += batchLimit) {
+          const chunk = snap.docs.slice(i, i + batchLimit)
+          const batch = writeBatch(db)
+          for (const d of chunk) {
+            batch.delete(d.ref)
+          }
+          await batch.commit()
+        }
+        return total
+      } catch (webErr: any) {
+        console.warn(`[Reset API] Web SDK delete failed for ${collectionName}:`, webErr?.message)
+        return 0
+      }
     }
 
     // ─── 4. Delete Database Collections in Strict Dependency Order ───────
@@ -269,7 +350,7 @@ export async function POST(req: NextRequest) {
 
     // ─── 5. Record a Fresh Audit Log Entry ────────────────────────────────
     try {
-      await adminDb.collection(COLLECTIONS.ACTIVITY_LOGS).add({
+      const logData = {
         action: 'System Reset Completed',
         entityType: 'System',
         description: `Operational data reset (${
@@ -278,7 +359,15 @@ export async function POST(req: NextRequest) {
         user: auth.email || 'Administrator',
         timestamp: new Date(),
         createdAt: new Date().toISOString(),
-      })
+      }
+      try {
+        await getAdminDb().collection(COLLECTIONS.ACTIVITY_LOGS).add(logData)
+      } catch {
+        const batch = writeBatch(db)
+        const newRef = doc(collection(db, COLLECTIONS.ACTIVITY_LOGS))
+        batch.set(newRef, logData)
+        await batch.commit()
+      }
     } catch (logErr) {
       console.warn('[Reset API] Non-fatal: failed to create audit log entry:', logErr)
     }

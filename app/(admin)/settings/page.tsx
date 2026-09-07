@@ -28,17 +28,26 @@ import type { BusinessSettings, BrandingSettings } from '@/lib/types'
 import { ResetAppDataSection } from '@/components/settings/ResetAppDataSection'
 import toast from 'react-hot-toast'
 
-type SettingsTab = 'business' | 'invoice' | 'payment' | 'messages' | 'branding' | 'account' | 'danger'
+type SettingsTab = 'business' | 'invoice' | 'payment' | 'messages' | 'sms' | 'branding' | 'account' | 'danger'
 
 const tabs: { id: SettingsTab; label: string; icon: React.ElementType; isDanger?: boolean }[] = [
   { id: 'business', label: 'Business Info', icon: Building2 },
   { id: 'invoice', label: 'Invoice Settings', icon: FileText },
   { id: 'payment', label: 'Payment', icon: CreditCard },
   { id: 'messages', label: 'Messages & Terms', icon: MessageSquare },
+  { id: 'sms', label: 'SMS & Textbelt', icon: MessageSquare },
   { id: 'branding', label: 'Branding', icon: Palette },
   { id: 'account', label: 'My Account', icon: User },
   { id: 'danger', label: 'Reset App Data', icon: AlertTriangle, isDanger: true },
 ]
+
+const DEFAULT_SMS_TEMPLATE = `Hello {client_name} 👋
+
+Welcome to LEXMEDIA.GH!
+
+Your information has been successfully added to our system. We look forward to working with you.
+
+Thank you!`
 
 const DEFAULT_SETTINGS: Partial<BusinessSettings> = {
   businessName: 'Lexmedia',
@@ -50,6 +59,9 @@ const DEFAULT_SETTINGS: Partial<BusinessSettings> = {
   defaultTaxRate: 0,
   defaultWhatsAppMessage:
     'Hello {{clientName}}, your Lexmedia package is ready. Please review the details and complete your payment here: {{link}}',
+  smsProvider: 'textbelt',
+  enableNewClientSms: true,
+  newClientSmsTemplate: DEFAULT_SMS_TEMPLATE,
 }
 
 const DEFAULT_BRANDING: BrandingSettings = {
@@ -479,6 +491,55 @@ export default function SettingsPage() {
                   <div className="space-y-4">
                     <Textarea label="Default WhatsApp Message Template" value={settings.defaultWhatsAppMessage ?? ''} onChange={(e) => update('defaultWhatsAppMessage', e.target.value)} rows={4} helperText="Use {{clientName}} and {{link}} as placeholders" />
                     <Textarea label="Default Terms & Conditions" value={settings.defaultTermsAndConditions ?? ''} onChange={(e) => update('defaultTermsAndConditions', e.target.value)} rows={6} placeholder="Enter your standard terms and conditions..." />
+                  </div>
+                </Card>
+              )}
+
+              {activeTab === 'sms' && (
+                <Card>
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">Textbelt SMS Integration</h3>
+                      <p className="text-sm text-muted">Configure Textbelt SMS notifications for new client onboarding.</p>
+                    </div>
+                    <div className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
+                      Provider: Textbelt
+                    </div>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Enable New Client SMS</p>
+                        <p className="text-xs text-muted">Automatically send a welcome SMS when a new client is successfully created.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settings.enableNewClientSms !== false}
+                          onChange={(e) => update('enableNewClientSms', e.target.checked as any)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-600"></div>
+                      </label>
+                    </div>
+
+                    <Input
+                      label="Textbelt API Key"
+                      type="password"
+                      value={settings.textbeltApiKey ?? ''}
+                      onChange={(e) => update('textbeltApiKey', e.target.value)}
+                      placeholder="textbelt (or your paid API key)"
+                      helperText="Leave blank or use 'textbelt' for the free tier, or enter your Textbelt API key. Stored securely on the server."
+                    />
+
+                    <Textarea
+                      label="Welcome SMS Template"
+                      value={settings.newClientSmsTemplate ?? DEFAULT_SMS_TEMPLATE}
+                      onChange={(e) => update('newClientSmsTemplate', e.target.value)}
+                      rows={6}
+                      helperText="Supported dynamic variables: {client_name}, {client_phone}"
+                    />
                   </div>
                 </Card>
               )}

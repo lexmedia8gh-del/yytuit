@@ -68,6 +68,36 @@ export default function ClientProfilePage() {
   const [showWizard, setShowWizard] = useState(false)
   const [showQuickJobModal, setShowQuickJobModal] = useState(false)
   const [showRequestInfoModal, setShowRequestInfoModal] = useState(false)
+  const [resendingSms, setResendingSms] = useState(false)
+
+  const handleResendSms = async () => {
+    if (!client || !client.phone) {
+      toast.error('Client has no phone number.')
+      return
+    }
+    setResendingSms(true)
+    try {
+      const res = await fetch('/api/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: client.id,
+          phone: client.phone,
+          fullName: client.fullName,
+        }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        toast.success('Welcome SMS resent successfully.')
+      } else {
+        toast.error(data.error || 'Failed to resend SMS.')
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Error resending SMS.')
+    } finally {
+      setResendingSms(false)
+    }
+  }
 
   useEffect(() => {
     if (searchParams.get('action') === 'new-project') {
@@ -323,11 +353,48 @@ export default function ClientProfilePage() {
               </div>
 
               {client.phone && (
-                <div className="flex items-start gap-3">
-                  <Phone size={15} className="text-gray-400 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs text-gray-500">Phone Number</p>
-                    <p className="font-medium text-gray-900">{client.phone}</p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Phone size={15} className="text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-gray-500">Phone Number</p>
+                      <p className="font-medium text-gray-900">{client.phone}</p>
+                    </div>
+                  </div>
+
+                  {/* SMS Status Widget */}
+                  <div className="p-3 bg-gray-50/80 rounded-xl border border-gray-100 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Welcome SMS</span>
+                      {client.smsSent ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          <CheckCircle2 size={12} className="text-emerald-600" /> Sent
+                        </span>
+                      ) : client.smsAttempted ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200" title={client.smsError}>
+                          <AlertCircle size={12} className="text-rose-600" /> Failed
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          Not Sent
+                        </span>
+                      )}
+                    </div>
+                    {client.smsError && (
+                      <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-lg leading-relaxed">
+                        {client.smsError}
+                      </p>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      loading={resendingSms}
+                      onClick={handleResendSms}
+                      className="w-full text-xs bg-white hover:bg-gray-100 text-gray-700 border-gray-200"
+                      icon={<MessageSquare size={13} className="text-indigo-600" />}
+                    >
+                      {client.smsSent ? 'Resend Welcome SMS' : 'Send Welcome SMS'}
+                    </Button>
                   </div>
                 </div>
               )}

@@ -38,6 +38,11 @@ export interface Client {
   outstandingBalance?: number
   lastMessageSentAt?: Timestamp
   lastMessageStatus?: string
+  smsAttempted?: boolean
+  smsSent?: boolean
+  smsSentAt?: Timestamp | string
+  smsError?: string
+  smsMessage?: string
   createdAt: Timestamp
   updatedAt: Timestamp
   createdBy: string // uid
@@ -433,6 +438,10 @@ export interface BusinessSettings {
   defaultTermsAndConditions?: string
   defaultWhatsAppMessage: string
   paystackPublicKey?: string
+  smsProvider?: string
+  textbeltApiKey?: string
+  enableNewClientSms?: boolean
+  newClientSmsTemplate?: string
   updatedAt: Timestamp
 }
 
