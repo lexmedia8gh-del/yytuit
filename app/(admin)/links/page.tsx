@@ -43,6 +43,8 @@ import {
 } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+export const dynamic = 'force-dynamic'
+
 export default function LinksPage() {
   const [links, setLinks] = useState<ClientLink[]>([])
   const [clients, setClients] = useState<Client[]>([])

@@ -302,6 +302,8 @@ function LogoUploader({
   )
 }
 
+export const dynamic = 'force-dynamic'
+
 export default function SettingsPage() {
   const { user, lexUser } = useAuth()
   const { theme, setTheme, toggleTheme } = useTheme()

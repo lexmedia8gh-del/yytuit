@@ -1,11 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { PageLoader } from '@/components/ui/Spinner'
+
+export const dynamic = 'force-dynamic'
 
 export default function AdminLayout({
   children,
@@ -16,14 +18,14 @@ export default function AdminLayout({
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // Show loader while checking auth
-  if (loading) {
-    return <PageLoader />
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login')
+    }
+  }, [user, loading, router])
 
-  // Client-side guard (middleware handles server-side)
-  if (!user) {
-    router.push('/login')
+  // Show loader while checking auth
+  if (loading || !user) {
     return <PageLoader />
   }
 

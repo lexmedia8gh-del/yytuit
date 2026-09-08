@@ -36,11 +36,11 @@ import {
 } from '@/lib/firebase/firestore'
 import type { Client, Project, Invoice, Payment } from '@/lib/types'
 
+export const dynamic = 'force-dynamic'
+
 export function Dashboard() {
-  const { lexUser } = useAuth()
-
+  const { lexUser, loading: authLoading } = useAuth()
   const [showQuickJobModal, setShowQuickJobModal] = useState(false)
-
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -56,6 +56,7 @@ export function Dashboard() {
   }
 
   useEffect(() => {
+    if (authLoading) return
     let unsubscribed = false
     setLoading(true)
 
@@ -121,7 +122,7 @@ export function Dashboard() {
       unsubInvoices()
       unsubPayments()
     }
-  }, [])
+  }, [authLoading])
 
   // Derived calculations
   const totalClients = (clients || []).length

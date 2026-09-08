@@ -3,6 +3,8 @@ import { ComingSoonPage } from '@/components/layout/ComingSoon'
 
 export const metadata: Metadata = { title: 'Analytics' }
 
+export const dynamic = 'force-dynamic'
+
 export default function AnalyticsPage() {
   return (
     <ComingSoonPage

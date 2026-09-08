@@ -46,6 +46,8 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { Zap, Sparkles } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default function ClientsPage() {
   const router = useRouter()
   const [clients, setClients] = useState<Client[]>([])

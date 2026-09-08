@@ -300,6 +300,8 @@ function ProjectsContent() {
   )
 }
 
+export const dynamic = 'force-dynamic'
+
 export default function ProjectsPage() {
   return (
     <Suspense fallback={<div className="p-8"><Spinner /></div>}>

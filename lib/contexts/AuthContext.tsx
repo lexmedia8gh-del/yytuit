@@ -2,7 +2,6 @@
 
 import React, {
   createContext,
-  useContext,
   useEffect,
   useState,
   useCallback,
@@ -26,7 +25,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   lexUser: null,
   role: null,
-  loading: true,
+  loading: false,
   isAdmin: false,
   refreshUser: async () => {},
 })
@@ -89,9 +88,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
+  const context = React.useContext(AuthContext)
+
+  if (typeof window === 'undefined' || !context) {
+    return {
+      user: null,
+      lexUser: null,
+      role: null,
+      loading: false,
+      isAdmin: false,
+      refreshUser: async () => {},
+    }
   }
+
   return context
 }

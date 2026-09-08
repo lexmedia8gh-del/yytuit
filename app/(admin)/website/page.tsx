@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import toast from 'react-hot-toast'
 
+export const dynamic = 'force-dynamic'
+
 export default function WebsiteContentPage() {
   const [activeTab, setActiveTab] = useState<'hero' | 'about' | 'contact'>('hero')
   const [saving, setSaving] = useState(false)

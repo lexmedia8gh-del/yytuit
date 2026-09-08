@@ -47,6 +47,8 @@ const PRESET_CATEGORIES: ServiceCategory[] = [
   'Other',
 ]
 
+export const dynamic = 'force-dynamic'
+
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)

@@ -65,6 +65,30 @@ function PublicPaymentPageInner() {
     setLoading(true)
 
     async function loadPaymentDetails() {
+      async function verifyPaystackTransaction(reference: string, link: ClientLink) {
+        setIsProcessing(true)
+        try {
+          const res = await fetch(`/api/paystack/verify?reference=${encodeURIComponent(reference)}&token=${encodeURIComponent(token)}`)
+          const data = await res.json()
+
+          if (res.ok && data.status === 'success') {
+            setPaymentSuccess(true)
+            toast.success('Payment verified successfully!')
+            if (typeof window !== 'undefined') {
+              const newUrl = `/pay/${encodeURIComponent(token)}?reference=${encodeURIComponent(reference)}&verified=true`
+              window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl)
+            }
+          } else {
+            toast.error(data.error || 'Payment verification failed')
+          }
+        } catch (err) {
+          console.error('Verification error:', err)
+          toast.error('An error occurred during verification')
+        } finally {
+          setIsProcessing(false)
+        }
+      }
+
       try {
         const allLinks = await getDocuments<ClientLink>(COLLECTIONS.CLIENT_LINKS)
         const match = allLinks.find((l) => l.token === token)
@@ -101,30 +125,6 @@ function PublicPaymentPageInner() {
 
     loadPaymentDetails()
   }, [token, refQuery])
-
-  const verifyPaystackTransaction = async (reference: string, link: ClientLink) => {
-    setIsProcessing(true)
-    try {
-      const res = await fetch(`/api/paystack/verify?reference=${encodeURIComponent(reference)}&token=${encodeURIComponent(token)}`)
-      const data = await res.json()
-
-      if (res.ok && data.status === 'success') {
-        setPaymentSuccess(true)
-        toast.success('Payment verified successfully!')
-        if (typeof window !== 'undefined') {
-          const newUrl = `/pay/${encodeURIComponent(token)}?reference=${encodeURIComponent(reference)}&verified=true`
-          window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl)
-        }
-      } else {
-        toast.error(data.error || 'Payment verification failed')
-      }
-    } catch (err) {
-      console.error('Verification error:', err)
-      toast.error('An error occurred during verification')
-    } finally {
-      setIsProcessing(false)
-    }
-  }
 
   const handlePayNow = async () => {
     if (!linkData) return

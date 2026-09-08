@@ -96,48 +96,47 @@ function ClientDeliveryPageInner() {
   const [downloadingAll, setDownloadingAll] = useState(false)
 
   useEffect(() => {
+    async function loadDelivery() {
+      setLoading(true)
+      setErrorMsg('')
+      setIsExpired(false)
+      setIsLocked(false)
+
+      try {
+        const res = await fetch(`/api/delivery/${encodeURIComponent(token)}`)
+        const data = await res.json()
+
+        if (res.status === 410 || data.isExpired) {
+          setIsExpired(true)
+          return
+        }
+
+        if (res.status === 403 || data.isLocked) {
+          setIsLocked(true)
+          setLockReason(data.lockReason || 'Delivery files are currently locked.')
+          if (data.delivery) {
+            setDelivery(data.delivery)
+          }
+          return
+        }
+
+        if (!res.ok) {
+          setErrorMsg(data.error || 'Failed to load project delivery details.')
+          return
+        }
+
+        setDelivery(data.delivery)
+        setFiles(data.files || [])
+      } catch (err) {
+        console.error('Error loading delivery:', err)
+        setErrorMsg('A network error occurred while connecting to the server.')
+      } finally {
+        setLoading(false)
+      }
+    }
     if (!token) return
     loadDelivery()
   }, [token])
-
-  const loadDelivery = async () => {
-    setLoading(true)
-    setErrorMsg('')
-    setIsExpired(false)
-    setIsLocked(false)
-
-    try {
-      const res = await fetch(`/api/delivery/${encodeURIComponent(token)}`)
-      const data = await res.json()
-
-      if (res.status === 410 || data.isExpired) {
-        setIsExpired(true)
-        return
-      }
-
-      if (res.status === 403 || data.isLocked) {
-        setIsLocked(true)
-        setLockReason(data.lockReason || 'Delivery files are currently locked.')
-        if (data.delivery) {
-          setDelivery(data.delivery)
-        }
-        return
-      }
-
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Failed to load project delivery details.')
-        return
-      }
-
-      setDelivery(data.delivery)
-      setFiles(data.files || [])
-    } catch (err) {
-      console.error('Error loading delivery:', err)
-      setErrorMsg('A network error occurred while connecting to the server.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleDownloadSingle = async (file: DeliveryFileDTO) => {
     setDownloadingFileId(file.id)

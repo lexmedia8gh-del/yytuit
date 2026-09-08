@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Upload,
   File,
@@ -105,13 +105,7 @@ export function ProjectDeliveryManager({
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 1. Fetch or create Delivery record for this Project
-  useEffect(() => {
-    if (!project?.id) return
-    loadDeliveryData()
-  }, [project.id])
-
-  const loadDeliveryData = async () => {
+  const loadDeliveryData = useCallback(async () => {
     setLoading(true)
     try {
       // Fetch or initialize delivery via Server Admin API (guarantees server-side Firestore truth)
@@ -141,7 +135,13 @@ export function ProjectDeliveryManager({
     } finally {
       setLoading(false)
     }
-  }
+  }, [project.id, project.clientId, project.name, project.clientName, project.invoiceId, client?.id, client?.fullName, invoice?.id])
+
+  // 1. Fetch or create Delivery record for this Project
+  useEffect(() => {
+    if (!project?.id) return
+    loadDeliveryData()
+  }, [project.id, loadDeliveryData])
 
   // 2. Stage Files Selected
   const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -35,6 +35,8 @@ import type { Package, Service, PackageItem, DepositType } from '@/lib/types'
 import { formatCurrency, formatDate, calculateDepositAmount } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+export const dynamic = 'force-dynamic'
+
 export default function PackagesPage() {
   const [packages, setPackages] = useState<Package[]>([])
   const [availableServices, setAvailableServices] = useState<Service[]>([])

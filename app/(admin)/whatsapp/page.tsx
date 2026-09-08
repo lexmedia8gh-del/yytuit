@@ -17,6 +17,8 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 
+export const dynamic = 'force-dynamic'
+
 export default function WhatsAppPage() {
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">

@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   description: 'Enterprise workspace and operations portal.',
 }
 
+export const dynamic = 'force-dynamic'
+
 export default function AuthLayout({
   children,
 }: {

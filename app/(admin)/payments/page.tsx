@@ -28,6 +28,8 @@ import type { Payment } from '@/lib/types'
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+export const dynamic = 'force-dynamic'
+
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
